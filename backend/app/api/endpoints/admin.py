@@ -215,7 +215,8 @@ async def system_health(
     
     # DB
     try:
-        db.execute("SELECT 1")
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
         health["database"] = "✅ Bağlı"
     except Exception as e:
         health["database"] = f"❌ Hata: {str(e)[:50]}"

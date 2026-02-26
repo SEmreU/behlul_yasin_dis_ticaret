@@ -4,29 +4,31 @@ services:
     name: yasin-trade-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt --ignore-installed
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     plan: free
     envVars:
       - key: DATABASE_URL
-        sync: false   # Render panelinden manuel gir
+        sync: false       # Render paneline girin (Supabase URL)
       - key: SECRET_KEY
-        generateValue: true   # Render otomatik üretir
-      - key: REDIS_URL
-        sync: false
+        generateValue: true
       - key: FRONTEND_URL
-        sync: false
+        sync: false       # Frontend Render URL
       - key: ENVIRONMENT
         value: production
       - key: ALGORITHM
         value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
       - key: GROQ_API_KEY
-        sync: false
+        sync: false       # Render paneline girin
       - key: OPENAI_API_KEY
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: SENDGRID_API_KEY
+        sync: false
+      - key: SCRAPERAPI_KEY
         sync: false
 
   # Frontend — Next.js
@@ -34,14 +36,11 @@ services:
     name: yasin-trade-frontend
     runtime: node
     rootDir: frontend
-    buildCommand: npm install && npx next build --no-lint
+    buildCommand: npm install && npm run build
     startCommand: npm start
     plan: free
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        sync: false   # Backend URL'sini gir (deploy sonrası)
-      - key: NEXT_DISABLE_ESLINT
-        value: "1"
-      - key: DISABLE_ESLINT_PLUGIN
-        value: "true"
-
+        sync: false       # Backend Render URL (örn: https://yasin-trade-backend.onrender.com)
+      - key: NODE_ENV
+        value: production

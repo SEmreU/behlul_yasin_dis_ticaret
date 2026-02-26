@@ -47,15 +47,16 @@ export default function B2BPage() {
 
         setLoading(true);
         try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const endpoint = activeTab === 'rfq'
-                ? 'http://localhost:8000/api/v1/marketplace/search-rfqs'
-                : 'http://localhost:8000/api/v1/marketplace/search-all';
+                ? `${API_URL}/api/v1/marketplace/search-rfqs`
+                : `${API_URL}/api/v1/marketplace/search-all`;
 
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
                 body: JSON.stringify({
                     query: searchQuery,
@@ -77,6 +78,7 @@ export default function B2BPage() {
             setLoading(false);
         }
     };
+
 
     const handleExportExcel = async () => {
         if (!searchQuery.trim()) {

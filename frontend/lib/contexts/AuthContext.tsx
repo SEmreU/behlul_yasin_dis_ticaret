@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const response = await authService.login(data);
     authService.setToken(response.access_token);
     await loadUser();
-    router.push('/dashboard');
+    router.push('/tr/dashboard');
   };
 
   const register = async (data: RegisterData) => {

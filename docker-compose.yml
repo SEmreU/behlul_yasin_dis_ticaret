@@ -1,20 +1,4 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: yasin-trade-postgres
-    environment:
-      POSTGRES_USER: yasin
-      POSTGRES_PASSWORD: yasin123
-      POSTGRES_DB: yasin_trade_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - yasin-network
 
   # Redis Cache
   redis:
@@ -37,13 +21,12 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+psycopg2://yasin:yasin123@postgres:5432/yasin_trade_db
+      DATABASE_URL: postgresql+psycopg2://postgres:nTPSybqT4ObkuJNa@db.nllaboufiqgykyrqpeuu.supabase.co:5432/postgres?sslmode=require
       REDIS_URL: redis://redis:6379/0
       FRONTEND_URL: http://localhost:3000
     volumes:
       - ./backend:/app
     depends_on:
-      - postgres
       - redis
     networks:
       - yasin-network
@@ -59,6 +42,7 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      HOSTNAME: "0.0.0.0"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -67,10 +51,6 @@ services:
       - backend
     networks:
       - yasin-network
-
-volumes:
-  postgres_data:
-
 
 networks:
   yasin-network:

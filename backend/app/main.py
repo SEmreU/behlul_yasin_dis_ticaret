@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.database import init_db
 from app.api.endpoints import (
     health, auth, visitor, search, scraping, campaigns, 
     analytics, gdpr, subscription, maps, b2b, contact, 
@@ -12,6 +13,13 @@ app = FastAPI(
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
+
+
+@app.on_event("startup")
+def on_startup():
+    """Create all database tables on startup"""
+    init_db()
+
 
 # CORS
 allowed_origins = ["http://localhost:3000", "http://localhost:3001"]

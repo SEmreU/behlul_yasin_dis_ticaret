@@ -28,9 +28,10 @@ export default function VisitorsPage() {
 
     const fetchVisitors = async () => {
         try {
-            const response = await fetch('http://localhost:8000/api/v1/visitor/visitors?limit=100', {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const response = await fetch(`${API_URL}/api/v1/visitor/visitors?limit=100`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 },
             });
 
@@ -44,6 +45,7 @@ export default function VisitorsPage() {
             setLoading(false);
         }
     };
+
 
     const handleExportExcel = async () => {
         setExcelLoading(true);
