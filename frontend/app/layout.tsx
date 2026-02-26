@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Yasin Dış Ticaret İstihbarat",
+  title: "TradeRadar - Dış Ticaret İstihbarat Platformu",
   description: "AI-powered foreign trade intelligence platform",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  return children;
+}) {
+  return children as React.ReactElement;
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import api from '@/lib/api';
-import { v4 as uuidv4 } from 'uuid';
+const uuidv4 = () => crypto.randomUUID();
 
 interface Message {
     id: string;
@@ -209,8 +209,8 @@ export default function ChatbotPage() {
                                     {messages.map(msg => (
                                         <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-xs lg:max-w-sm px-3 py-2 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                                                    ? 'bg-blue-600 text-white rounded-br-sm'
-                                                    : 'bg-white/10 text-gray-200 rounded-bl-sm'
+                                                ? 'bg-blue-600 text-white rounded-br-sm'
+                                                : 'bg-white/10 text-gray-200 rounded-bl-sm'
                                                 }`}>
                                                 {msg.content}
                                                 <div className={`text-xs mt-1 ${msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'}`}>
