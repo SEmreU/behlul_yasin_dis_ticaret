@@ -11,6 +11,58 @@ class ProductSearchService:
     SUPPORTED_LANGUAGES = ['tr', 'en', 'es', 'ru', 'ar', 'fr', 'de', 'zh']
 
     @staticmethod
+    async def search_products(
+        db: Session,
+        query: str,
+        language: str = 'tr',
+        search_type: str = 'text',
+        max_results: int = 50
+    ) -> List[Dict]:
+        """
+        Ana arama metodu — search_type'a göre doğru servisi çağırır.
+        Sonuçları frontend'in beklediği ortak formata dönüştürür.
+        """
+        try:
+            if search_type == 'gtip':
+                products = ProductSearchService.search_by_gtip(db, query)
+                return [
+                    {
+                        "id": p.id,
+                        "title": getattr(p, 'category', '') or 'Ürün',
+                        "gtip_code": getattr(p, 'gtip_code', ''),
+                        "oem_code": getattr(p, 'oem_code', ''),
+                        "country": "",
+                        "source": "DB/GTİP",
+                        "url": None,
+                    }
+                    for p in products[:max_results]
+                ]
+            elif search_type == 'oem':
+                products = ProductSearchService.search_by_oem(db, query)
+                return [
+                    {
+                        "id": p.id,
+                        "title": getattr(p, 'category', '') or 'Ürün',
+                        "gtip_code": getattr(p, 'gtip_code', ''),
+                        "oem_code": getattr(p, 'oem_code', ''),
+                        "country": "",
+                        "source": "DB/OEM",
+                        "url": None,
+                    }
+                    for p in products[:max_results]
+                ]
+            else:
+                # text search — çoklu dil
+                langs = [language] if language != 'tr' else ['tr', 'en']
+                results = await ProductSearchService.search_by_name_multilang(db, query, langs)
+                return results[:max_results]
+        except Exception as e:
+            # Veritabanında tablo yoksa boş liste döndür (Supabase'de henüz veri girilmemiş olabilir)
+            print(f"[Search] {e}")
+            return []
+
+
+    @staticmethod
     async def translate_text(text: str, target_lang: str, source_lang: str = 'auto') -> str:
         """
         Google Translate API ile çeviri
