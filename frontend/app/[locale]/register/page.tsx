@@ -29,7 +29,7 @@ export default function RegisterPage() {
     try {
       await register({ email, password, full_name: fullName || undefined });
     } catch (err: unknown) {
-      setError((err as any).response?.data?.detail || 'Kayıt başarısız. Lütfen tekrar deneyin.');
+      setError((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Kayıt başarısız. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }

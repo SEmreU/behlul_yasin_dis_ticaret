@@ -50,8 +50,8 @@ export default function VisitorsPage() {
         try {
             await exportVisitorsToExcel(1000);
             alert('Excel dosyası başarıyla indirildi!');
-        } catch (error) {
-            console.error('Export error:', error);
+        } catch (err) {
+            console.error('Export error:', err);
             alert('Excel indirme başarısız oldu.');
         } finally {
             setExcelLoading(false);
@@ -96,7 +96,6 @@ export default function VisitorsPage() {
                     />
                 </div>
 
-                {/* Info Box */}
                 <div className="bg-[#00e5a008] border border-[#00e5a022] rounded-xl p-4 mb-6 text-sm text-[#94a3b8] leading-7">
                     <strong>Nasıl Çalışır?</strong> Ziyaretçiye konum izni sorulur. &quot;Evet&quot; derse konum + firma eşleştirmesi yapılır (Google Geolocation API).
                     &quot;Hayır&quot; derse IP adresi üzerinden ülke ve firma tespiti yapılır. Tüm veriler otomatik bildirim olarak iletilir.

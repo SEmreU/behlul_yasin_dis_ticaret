@@ -38,8 +38,9 @@ export default function SearchPage() {
       });
 
       setResults(response.data.results);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Arama başarısız');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } };
+      alert(err.response?.data?.detail || 'Arama başarısız');
     } finally {
       setLoading(false);
     }
@@ -85,8 +86,8 @@ export default function SearchPage() {
                 <button
                   onClick={() => setSearchType('multilang')}
                   className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'multilang'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-300'
                     }`}
                 >
                   <Globe className="w-5 h-5" />
@@ -95,8 +96,8 @@ export default function SearchPage() {
                 <button
                   onClick={() => setSearchType('gtip')}
                   className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'gtip'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-300'
                     }`}
                 >
                   <FileCode className="w-5 h-5" />
@@ -105,8 +106,8 @@ export default function SearchPage() {
                 <button
                   onClick={() => setSearchType('oem')}
                   className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'oem'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-300'
                     }`}
                 >
                   <FileCode className="w-5 h-5" />
@@ -115,8 +116,8 @@ export default function SearchPage() {
                 <button
                   onClick={() => setSearchType('image')}
                   className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'image'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-300'
                     }`}
                 >
                   <ImageIcon className="w-5 h-5" />
@@ -137,8 +138,8 @@ export default function SearchPage() {
                       key={lang.code}
                       onClick={() => toggleLanguage(lang.code)}
                       className={`px-3 py-1 text-sm rounded-full border ${selectedLanguages.includes(lang.code)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300'
                         }`}
                     >
                       {lang.name}

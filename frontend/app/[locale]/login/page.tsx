@@ -18,7 +18,7 @@ export default function LoginPage() {
     try {
       await login({ email: user, password: pass });
     } catch (err: unknown) {
-      const errorMsg = (err as any)?.response?.data?.detail || 'Giriş başarısız. Lütfen tekrar deneyin.';
+      const errorMsg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Giriş başarısız. Lütfen tekrar deneyin.';
       setError(errorMsg);
       setLoading(false);
     }

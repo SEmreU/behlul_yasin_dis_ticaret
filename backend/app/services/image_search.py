@@ -2,7 +2,7 @@
 Görsel Arama Servisi
 OpenCV + GPT-4 Vision ile ürün arama
 """
-import cv2
+from PIL import Image
 import numpy as np
 import base64
 from typing import List, Dict, Optional
@@ -31,10 +31,12 @@ class ImageSearchService:
         Returns:
             Bulunan ürünler listesi
         """
-        # 1. Görseli yükle ve işle
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError("Görsel yüklenemedi")
+        # 1. Görseli kontrol et
+        try:
+            with Image.open(image_path) as img:
+                img.verify()
+        except Exception:
+            raise ValueError("Görsel yüklenemedi veya geçersiz format")
         
         # 2. GPT-4 Vision ile analiz et
         product_info = await ImageSearchService._analyze_with_gpt4_vision(image_path)
@@ -184,19 +186,7 @@ JSON formatında döndür:
     @staticmethod
     def extract_features_opencv(image_path: str) -> np.ndarray:
         """
-        OpenCV ile görsel özelliklerini çıkar (opsiyonel)
-        
-        Args:
-            image_path: Görsel yolu
-            
-        Returns:
-            Feature vektörü
+        Görsel özelliklerini çıkar (Stub - OpenCV bağımlılığı kaldırıldı)
         """
-        img = cv2.imread(image_path)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # SIFT feature extraction
-        sift = cv2.SIFT_create()
-        keypoints, descriptors = sift.detectAndCompute(gray, None)
-        
-        return descriptors
+        print("[Warning] extract_features_opencv devredışı (cloud compatibility)")
+        return np.array([])
