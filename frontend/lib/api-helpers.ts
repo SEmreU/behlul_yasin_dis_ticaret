@@ -18,7 +18,7 @@ export async function downloadExcel(endpoint: string, filename: string, params?:
         const response = await fetch(`${API_BASE_URL}${endpoint}${queryString}`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
             },
         });
 

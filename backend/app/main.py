@@ -4,7 +4,7 @@ from app.core.config import settings
 from app.api.endpoints import (
     health, auth, visitor, search, scraping, campaigns, 
     analytics, gdpr, subscription, maps, b2b, contact, 
-    chatbot, fairs, markets
+    chatbot, fairs, markets, admin
 )
 
 app = FastAPI(
@@ -40,6 +40,7 @@ app.include_router(contact.router, prefix=f"{settings.API_V1_STR}/contact", tags
 app.include_router(chatbot.router, prefix=f"{settings.API_V1_STR}/chatbot", tags=["ai-chatbot"])
 app.include_router(fairs.router, prefix=f"{settings.API_V1_STR}/fairs", tags=["fair-analysis"])
 app.include_router(markets.router, prefix=f"{settings.API_V1_STR}/markets", tags=["market-research"])
+app.include_router(admin.router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin-settings"])
 
 
 @app.get("/")

@@ -1,0 +1,49 @@
+# PROJE KURULUM TALİMATLARI
+
+Bu proje size ZIP dosyası olarak iletilmiştir. Dosya boyutunu küçültmek ve uyumluluk sorunlarını önlemek için gereksiz "kütüphane klasörleri" (node_modules, venv) çıkarılmıştır.
+
+Projeyi çalıştırmak için klasörü masaüstüne çıkardıktan sonra aşağıdaki adımları uygulamanız yeterlidir:
+
+## 1. Gereksinimler
+Bilgisayarınızda şunların kurulu olması gerekir:
+- Node.js (Frontend için)
+- Python (Backend için)
+
+## 2. Kurulum (Terminal/Komut Satırı ile)
+
+Proje klasörünün içine girip şu komutları çalıştırın:
+
+### Backend (Python) Kurulumu:
+```bash
+cd backend
+python -m venv venv
+# Windows için:
+venv\Scripts\activate
+# Mac/Linux için:
+source venv/bin/activate
+
+pip install -r requirements.txt
+playwright install
+```
+
+### Frontend (Next.js) Kurulumu:
+```bash
+cd ../frontend
+npm install
+```
+
+## 3. Çalıştırma
+
+### Backend'i Başlatma:
+```bash
+cd backend
+uvicorn app.main:app --reload
+```
+
+### Frontend'i Başlatma (Yeni Terminalde):
+```bash
+cd frontend
+npm run dev
+```
+
+Tarayıcıda `http://localhost:3000` adresine giderek projeyi görebilirsiniz.
