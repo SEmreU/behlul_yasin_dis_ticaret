@@ -38,7 +38,7 @@ export default function ContactPage() {
         setSummary(null);
 
         try {
-            const res = await api.post('/api/v1/contact/find', {
+            const res = await api.post('/contact/find', {
                 websites: urls,
             });
             setResults(res.data.results);

@@ -10,13 +10,13 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.deps import get_current_active_user as get_current_user
 from app.models.user import User
 from app.services.marketplace_scrapers import MarketplaceScraperService
 from app.services.excel_export import ExcelExportService
 
 
-router = APIRouter(prefix="/marketplace", tags=["marketplace"])
+router = APIRouter(tags=["marketplace"])
 
 
 class MarketplaceSearchRequest(BaseModel):

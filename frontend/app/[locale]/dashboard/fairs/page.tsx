@@ -54,7 +54,7 @@ export default function FairsPage() {
             if (gtipCode.trim()) payload.gtip_codes = [gtipCode.trim()];
             if (targetCountry.trim()) payload.target_countries = [targetCountry.trim()];
 
-            const res = await api.post('/api/v1/fairs/match', payload);
+            const res = await api.post('/fairs/match', payload);
             setResults(res.data);
         } catch (e: unknown) {
             const err = e as { response?: { data?: { detail?: string } } };
