@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yasin Dış Ticaret - Chat Bot Entegreli</title>
+<meta name='robots' content='max-image-preview:large' />
+<meta name="description" content="Yılardır Değişmeyen Kalite" />
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mevcut stilleri koruyoruz - sadece önemli olanlar */
+body {
+    font-family: 'Open Sans', sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+/* Chat Bot Stilleri */
+#chatbot-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+#chatbot-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #03a9f4 0%, #6632ff 100%);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+}
+
+#chatbot-button:hover {
+    transform: scale(1.1);
+}
+
+#chatbot-button svg {
+    width: 30px;
+    height: 30px;
+    fill: white;
+}
+
+#chatbot-window {
+    display: none;
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    width: 380px;
+    height: 600px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#chatbot-window.active {
+    display: flex;
+}
+
+#chatbot-header {
+    background: linear-gradient(135deg, #03a9f4 0%, #6632ff 100%);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#chatbot-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+#chatbot-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+#chatbot-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #f8f9fa;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chat-message.bot {
+    text-align: left;
+}
+
+.chat-message.user {
+    text-align: right;
+}
+
+.message-bubble {
+    display: inline-block;
+    padding: 12px 18px;
+    border-radius: 18px;
+    max-width: 70%;
+    word-wrap: break-word;
+}
+
+.chat-message.bot .message-bubble {
+    background: white;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chat-message.user .message-bubble {
+    background: #03a9f4;
+    color: white;
+}
+
+#chatbot-input-area {
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #eee;
+}
+
+#chatbot-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 25px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+#chatbot-input:focus {
+    border-color: #03a9f4;
+}
+
+.chat-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.chat-option-btn {
+    background: white;
+    border: 2px solid #03a9f4;
+    color: #03a9f4;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.chat-option-btn:hover {
+    background: #03a9f4;
+    color: white;
+}
+
+/* İletişim Formu Bölümü */
+#contact-section {
+    padding: 80px 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.contact-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 40px;
+}
+
+.contact-form {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Open Sans', sans-serif;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #03a9f4;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.submit-btn {
+    background: linear-gradient(135deg, #03a9f4 0%, #6632ff 100%);
+    color: white;
+    padding: 15px 40px;
+    border: none;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    width: 100%;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(3,169,244,0.3);
+}
+
+.contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.info-card {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.info-card h3 {
+    color: #03a9f4;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.info-item svg {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    fill: #03a9f4;
+}
+
+@media (max-width: 768px) {
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #chatbot-window {
+        width: 100%;
+        height: 100%;
+        bottom: 0;
+        right: 0;
+        border-radius: 0;
+    }
+}
+
+.section-title {
+    text-align: center;
+    font-size: 42px;
+    color: #17252a;
+    margin-bottom: 20px;
+}
+
+.section-subtitle {
+    text-align: center;
+    font-size: 18px;
+    color: #666;
+    max-width: 600px;
+    margin: 0 auto 40px;
+}
+</style>
+</head>
+<body>
+
+<!-- Mevcut içerik burada olacak - kısaltıyorum -->
+<div class="site" id="page-top">
+
+    <header>
+        <h1 style="text-align:center; padding:100px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; margin:0;">
+            Yasin Dış Ticaret<br>
+            <small style="font-size:0.5em;">Yılardır Değişmeyen Kalite</small>
+        </h1>
+    </header>
+
+    <!-- İLETİŞİM BÖLÜMÜ -->
+    <section id="contact-section">
+        <div class="contact-container">
+            <h2 class="section-title">İletişim</h2>
+            <p class="section-subtitle">
+                Bizimle iletişime geçin, dış ticaret ihtiyaçlarınız için size yardımcı olalım.
+            </p>
+
+            <div class="contact-grid">
+                <!-- İletişim Formu -->
+                <div class="contact-form">
+                    <h3 style="margin-top:0; color:#17252a;">Bize Ulaşın</h3>
+                    <form id="contact-form">
+                        <div class="form-group">
+                            <label for="name">Ad Soyad *</label>
+                            <input type="text" id="name" name="name" required placeholder="Adınız ve soyadınız">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">E-posta *</label>
+                            <input type="email" id="email" name="email" required placeholder="ornek@firma.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone">Telefon</label>
+                            <input type="tel" id="phone" name="phone" placeholder="+90 555 123 4567">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="company">Firma Adı *</label>
+                            <input type="text" id="company" name="company" required placeholder="Firma adınız">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sector">Sektör</label>
+                            <select id="sector" name="sector">
+                                <option value="">Seçiniz...</option>
+                                <option value="otomotiv">Otomotiv</option>
+                                <option value="tekstil">Tekstil</option>
+                                <option value="makine">Makine</option>
+                                <option value="gida">Gıda</option>
+                                <option value="insaat">İnşaat</option>
+                                <option value="enerji">Enerji</option>
+                                <option value="diger">Diğer</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Mesajınız *</label>
+                            <textarea id="message" name="message" required placeholder="Mesajınızı buraya yazın..."></textarea>
+                        </div>
+
+                        <button type="submit" class="submit-btn">Gönder</button>
+                    </form>
+                </div>
+
+                <!-- İletişim Bilgileri -->
+                <div class="contact-info">
+                    <div class="info-card">
+                        <h3>İletişim Bilgileri</h3>
+                        <div class="info-item">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                            <span>Ankara, Türkiye</span>
+                        </div>
+                        <div class="info-item">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                            <span>info@yasindisticaret.com</span>
+                        </div>
+                        <div class="info-item">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                            <span>+90 555 123 45 67</span>
+                        </div>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Çalışma Saatleri</h3>
+                        <p style="margin:0; line-height:1.8;">
+                            <strong>Pazartesi - Cuma:</strong> 09:00 - 18:00<br>
+                            <strong>Cumartesi:</strong> 09:00 - 14:00<br>
+                            <strong>Pazar:</strong> Kapalı
+                        </p>
+                    </div>
+
+                    <div class="info-card">
+                        <h3>Sosyal Medya</h3>
+                        <div style="display:flex; gap:15px; margin-top:15px;">
+                            <a href="#" style="width:40px; height:40px; background:#03a9f4; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; text-decoration:none;">f</a>
+                            <a href="#" style="width:40px; height:40px; background:#03a9f4; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; text-decoration:none;">in</a>
+                            <a href="#" style="width:40px; height:40px; background:#03a9f4; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; text-decoration:none;">tw</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- CHAT BOT WIDGET -->
+<div id="chatbot-container">
+    <button id="chatbot-button" aria-label="Chat Bot">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+        </svg>
+    </button>
+
+    <div id="chatbot-window">
+        <div id="chatbot-header">
+            <h3>💬 Yasin Dış Ticaret Asistanı</h3>
+            <button id="chatbot-close">&times;</button>
+        </div>
+
+        <div id="chatbot-messages">
+            <div class="chat-message bot">
+                <div class="message-bubble">
+                    Merhaba! Ben Yasin Dış Ticaret'in yapay zeka asistanıyım. 👋<br><br>
+                    Size nasıl yardımcı olabilirim?
+                </div>
+            </div>
+        </div>
+
+        <div id="chatbot-input-area">
+            <input type="text" id="chatbot-input" placeholder="Mesajınızı yazın..." />
+        </div>
+    </div>
+</div>
+
+<script>
+// Chat Bot JavaScript
+const chatbotButton = document.getElementById('chatbot-button');
+const chatbotWindow = document.getElementById('chatbot-window');
+const chatbotClose = document.getElementById('chatbot-close');
+const chatbotMessages = document.getElementById('chatbot-messages');
+const chatbotInput = document.getElementById('chatbot-input');
+
+let chatState = {
+    step: 'welcome',
+    data: {}
+};
+
+chatbotButton.addEventListener('click', () => {
+    chatbotWindow.classList.add('active');
+    if (chatState.step === 'welcome') {
+        setTimeout(() => showWelcomeOptions(), 500);
+    }
+});
+
+chatbotClose.addEventListener('click', () => {
+    chatbotWindow.classList.remove('active');
+});
+
+chatbotInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && chatbotInput.value.trim()) {
+        handleUserMessage(chatbotInput.value.trim());
+        chatbotInput.value = '';
+    }
+});
+
+function addMessage(text, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${isUser ? 'user' : 'bot'}`;
+    messageDiv.innerHTML = `<div class="message-bubble">${text}</div>`;
+    chatbotMessages.appendChild(messageDiv);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+}
+
+function showOptions(options) {
+    const optionsDiv = document.createElement('div');
+    optionsDiv.className = 'chat-options';
+    options.forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-option-btn';
+        btn.textContent = option.text;
+        btn.onclick = () => {
+            addMessage(option.text, true);
+            option.action();
+        };
+        optionsDiv.appendChild(btn);
+    });
+    const lastMessage = chatbotMessages.lastElementChild;
+    lastMessage.appendChild(optionsDiv);
+}
+
+function showWelcomeOptions() {
+    addMessage('Aşağıdaki konulardan birini seçebilirsiniz:');
+    showOptions([
+        { text: 'Bilgi almak istiyorum', action: startLeadCapture },
+        { text: 'Hizmetlerinizi öğrenmek istiyorum', action: showServices },
+        { text: 'Teklif almak istiyorum', action: startQuoteRequest }
+    ]);
+}
+
+function startLeadCapture() {
+    chatState.step = 'name';
+    addMessage('Harika! Öncelikle sizi tanımak istiyorum. Adınız ve soyadınız nedir?');
+}
+
+function showServices() {
+    addMessage('🌍 <strong>Hizmetlerimiz:</strong><br><br>' +
+        '✅ İhracat & İthalat Danışmanlığı<br>' +
+        '✅ Uluslararası Lojistik<br>' +
+        '✅ Gümrük İşlemleri<br>' +
+        '✅ Pazar Araştırması<br>' +
+        '✅ B2B Eşleştirme<br><br>' +
+        'Detaylı bilgi için bizimle iletişime geçebilirsiniz! 😊');
+}
+
+function startQuoteRequest() {
+    chatState.step = 'name';
+    chatState.data.type = 'quote';
+    addMessage('Teklif hazırlayabilmemiz için birkaç bilgiye ihtiyacımız var. Adınız ve soyadınız nedir?');
+}
+
+function handleUserMessage(message) {
+    switch(chatState.step) {
+        case 'name':
+            chatState.data.name = message;
+            chatState.step = 'company';
+            addMessage(`Memnun oldum ${message}! 😊<br><br>Firma adınız nedir?`);
+            break;
+
+        case 'company':
+            chatState.data.company = message;
+            chatState.step = 'email';
+            addMessage('Harika! E-posta adresinizi alabilir miyim?');
+            break;
+
+        case 'email':
+            if (validateEmail(message)) {
+                chatState.data.email = message;
+                chatState.step = 'phone';
+                addMessage('Teşekkürler! Telefon numaranız?');
+            } else {
+                addMessage('Lütfen geçerli bir e-posta adresi girin.');
+            }
+            break;
+
+        case 'phone':
+            chatState.data.phone = message;
+            chatState.step = 'location';
+            addMessage('Firmanız hangi şehirde bulunuyor?');
+            break;
+
+        case 'location':
+            chatState.data.location = message;
+            chatState.step = 'sector';
+            addMessage('Hangi sektörde faaliyet gösteriyorsunuz?');
+            showOptions([
+                { text: 'Otomotiv', action: () => finalizeLead('Otomotiv') },
+                { text: 'Tekstil', action: () => finalizeLead('Tekstil') },
+                { text: 'Makine', action: () => finalizeLead('Makine') },
+                { text: 'Gıda', action: () => finalizeLead('Gıda') },
+                { text: 'Diğer', action: () => { chatState.step = 'sector_other'; addMessage('Hangi sektör?'); } }
+            ]);
+            break;
+
+        case 'sector_other':
+            finalizeLead(message);
+            break;
+    }
+}
+
+function finalizeLead(sector) {
+    chatState.data.sector = sector;
+
+    // API'ye gönder
+    sendToBackend(chatState.data);
+
+    addMessage(`✅ Teşekkür ederiz ${chatState.data.name}!<br><br>` +
+        'Bilgileriniz kaydedildi. Ekibimiz en kısa sürede sizinle iletişime geçecek.<br><br>' +
+        '📧 E-posta: ' + chatState.data.email + '<br>' +
+        '📱 Telefon: ' + chatState.data.phone + '<br><br>' +
+        'İyi günler dileriz! 🌟');
+
+    // Reset
+    chatState = { step: 'complete', data: {} };
+}
+
+function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function sendToBackend(data) {
+    // Backend API'ye gönder
+    fetch('http://localhost:8000/api/v1/chatbot/leads', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            ...data,
+            source: 'chatbot',
+            timestamp: new Date().toISOString()
+        })
+    })
+    .then(response => response.json())
+    .then(result => console.log('Lead saved:', result))
+    .catch(error => console.error('Error:', error));
+}
+
+// İletişim Formu
+document.getElementById('contact-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        company: document.getElementById('company').value,
+        sector: document.getElementById('sector').value,
+        message: document.getElementById('message').value,
+        source: 'contact_form',
+        timestamp: new Date().toISOString()
+    };
+
+    // Backend API'ye gönder
+    fetch('http://localhost:8000/api/v1/contact/submit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(result => {
+        alert('✅ Mesajınız başarıyla gönderildi! En kısa sürede size dönüş yapacağız.');
+        document.getElementById('contact-form').reset();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Bir hata oluştu. Lütfen tekrar deneyin.');
+    });
+});
+</script>
+
+</body>
+</html>

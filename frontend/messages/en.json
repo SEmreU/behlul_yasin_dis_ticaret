@@ -1,0 +1,36 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "search": "Search",
+    "export": "Export",
+    "filter": "Filter",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "search": "Product Search",
+    "companies": "Companies",
+    "campaigns": "Campaigns",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Yasin Foreign Trade Intelligence Platform",
+    "subtitle": "AI-powered global customer finder",
+    "totalCompanies": "Total Companies",
+    "emailsSent": "Emails Sent",
+    "openRate": "Open Rate",
+    "credits": "Credits Remaining"
+  },
+  "modules": {
+    "visitorIdentification": "Visitor Identification",
+    "productSearch": "Smart Product Search",
+    "mapMining": "Map Mining",
+    "emailAutomation": "Email Automation",
+    "fairAnalysis": "Fair Analysis"
+  }
+}

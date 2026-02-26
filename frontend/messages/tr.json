@@ -1,0 +1,36 @@
+{
+  "common": {
+    "welcome": "Hoş Geldiniz",
+    "loading": "Yükleniyor...",
+    "search": "Ara",
+    "export": "Dışa Aktar",
+    "filter": "Filtrele",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "edit": "Düzenle"
+  },
+  "nav": {
+    "dashboard": "Gösterge Paneli",
+    "search": "Ürün Arama",
+    "companies": "Firmalar",
+    "campaigns": "Kampanyalar",
+    "analytics": "Analitik",
+    "settings": "Ayarlar"
+  },
+  "dashboard": {
+    "title": "Yasin Dış Ticaret İstihbarat Platformu",
+    "subtitle": "Yapay zeka destekli global müşteri bulucu",
+    "totalCompanies": "Toplam Firma",
+    "emailsSent": "Gönderilen E-posta",
+    "openRate": "Açılma Oranı",
+    "credits": "Kalan Kontör"
+  },
+  "modules": {
+    "visitorIdentification": "Ziyaretçi Kimliklendirme",
+    "productSearch": "Akıllı Ürün Arama",
+    "mapMining": "Harita Madenciliği",
+    "emailAutomation": "E-posta Otomasyonu",
+    "fairAnalysis": "Fuar Analizi"
+  }
+}

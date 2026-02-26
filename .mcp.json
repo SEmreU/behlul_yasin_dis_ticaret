@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "/home/behlul/.local/bin/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/home/behlul/serena",
+        "serena-mcp-server"
+      ],
+      "env": {}
+    }
+  }
+}
