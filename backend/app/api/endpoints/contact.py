@@ -1,122 +1,69 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-import io
 
 from app.core.deps import get_db, get_current_active_user
 from app.models.user import User
+from app.services.contact_finder import ContactFinderService, search_companies_by_keyword
 
 router = APIRouter()
 
 
 class ContactFinderRequest(BaseModel):
-    """Contact finder request model"""
     websites: List[str]
-    positions: List[str]  # ['Purchasing Manager', 'Sales Manager', etc.]
+    positions: Optional[List[str]] = None
 
 
-class ContactFinderResponse(BaseModel):
-    """Contact finder response model"""
-    results: List[dict]
-    total_contacts_found: int
+class BulkSearchRequest(BaseModel):
+    keyword: str
+    country: Optional[str] = ""
+    find_contacts: bool = False
 
 
-@router.post("/find", response_model=ContactFinderResponse)
+@router.post("/find")
 async def find_contacts(
     request: ContactFinderRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Web sitelerinden yetkili e-posta adresi bulma
+    Web sitelerinden e-posta, telefon ve sosyal medya bilgisi çıkar.
     
-    **Özellikler:**
-    - info@ yerine gerçek yetkili e-posta bulur
-    - LinkedIn entegrasyonu (opsiyonel)
-    - Hunter.io benzeri e-posta pattern tespiti
-    - E-posta doğrulama
-    
-    **Aranan Pozisyonlar:**
-    - Purchasing Manager
-    - Sales Manager
-    - General Manager
-    - Owner/CEO
-    - Import/Export Manager
-    
-    **Credit:** 1 credit per website
+    - Her web sitesi için ana sayfa + iletişim sayfası taranır.
+    - E-postalar, telefon numaraları, LinkedIn/Twitter/Facebook profilleri bulunur.
+    - ScraperAPI key girilirse başarı oranı artar.
     """
-    credits_needed = len(request.websites)
-    
-    if current_user.query_credits < credits_needed:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Yetersiz kredi. {len(request.websites)} site taraması {credits_needed} kredi gerektirir."
-        )
-    
-    # TODO: Implement contact finder logic
-    # 1. For each website:
-    #    - Scrape all pages (BeautifulSoup/Scrapy)
-    #    - Extract all email addresses
-    #    - Identify patterns (firstname.lastname@domain.com)
-    #    - Filter by position keywords
-    #    - Verify emails (SMTP check)
-    # 2. Check LinkedIn for matching profiles
-    # 3. Save to database
-    
-    # Kontör düş
-    current_user.query_credits -= credits_needed
-    db.commit()
-    
-    # Dummy response
-    results = [
-        {
-            "website": request.websites[0] if request.websites else "example.com",
-            "contacts": [
-                {
-                    "name": "John Doe",
-                    "position": "Purchasing Manager",
-                    "email": "john.doe@example.com",
-                    "verified": True,
-                    "source": "website"
-                }
-            ]
-        }
-    ]
-    
+    if not request.websites:
+        raise HTTPException(status_code=400, detail="En az bir web sitesi girin")
+
+    # Kredi kontrolü (isteğe bağlı — şimdilik kapalı)
+    # credits_needed = len(request.websites)
+    # if current_user.query_credits < credits_needed:
+    #     raise HTTPException(status_code=403, detail=f"Yetersiz kredi")
+
+    results = await ContactFinderService.find_contacts_bulk(request.websites)
+
+    total_emails = sum(len(r.get("emails", [])) for r in results)
+    total_phones = sum(len(r.get("phones", [])) for r in results)
+
     return {
         "results": results,
-        "total_contacts_found": sum(len(r["contacts"]) for r in results)
+        "total_websites_scanned": len(results),
+        "total_emails_found": total_emails,
+        "total_phones_found": total_phones,
+        "tip": "ScraperAPI key eklenirse daha fazla site taranabilir (Dashboard → Ayarlar → Scraping)"
     }
 
 
-@router.post("/upload-excel")
-async def upload_website_list(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+@router.post("/find-single")
+async def find_contacts_single(
+    url: str,
     current_user: User = Depends(get_current_active_user)
 ):
-    """
-    Excel dosyasından web sitesi listesi yükle ve contact finder çalıştır
-    
-    **Excel Formatı:**
-    - Column 1: Website URL
-    - Column 2: Company Name (optional)
-    
-    Returns:
-        Job ID for tracking progress
-    """
-    # TODO: Implement Excel upload
-    # 1. Parse Excel (openpyxl/pandas)
-    # 2. Extract URLs
-    # 3. Queue contact finder job
-    # 4. Return job ID
-    
-    return {
-        "message": "Excel yükleme özelliği yakında eklenecek",
-        "filename": file.filename,
-        "status": "pending"
-    }
+    """Tek bir web sitesinden iletişim bilgisi çıkar"""
+    result = await ContactFinderService.find_contacts(url)
+    return result
 
 
 @router.post("/verify-email")
@@ -124,24 +71,47 @@ async def verify_email_address(
     email: str,
     current_user: User = Depends(get_current_active_user)
 ):
+    """E-posta adresini doğrula (format + domain kontrolü)"""
+    result = ContactFinderService.verify_email(email)
+    return result
+
+
+@router.post("/search-companies")
+async def search_companies(
+    request: BulkSearchRequest,
+    current_user: User = Depends(get_current_active_user)
+):
     """
-    E-posta adresini doğrula (SMTP check)
+    Google'da şirket ara ve iletişim bilgilerini topla.
     
-    Args:
-        email: Doğrulanacak e-posta adresi
-        
-    Returns:
-        Valid/Invalid status with details
+    - ScraperAPI key gerekli (Dashboard → Ayarlar → Scraping)
+    - Keyword + ülke ile şirket web siteleri bulunur
+    - Opsiyonel: her şirketin iletişim bilgisi de taranır
     """
-    # TODO: Implement email verification
-    # 1. Check email format (regex)
-    # 2. DNS MX record check
-    # 3. SMTP verification (without sending email)
-    # 4. Disposable email check
-    
+    companies = await search_companies_by_keyword(request.keyword, request.country)
+
+    if request.find_contacts and companies:
+        urls = [c["url"] for c in companies if c.get("url")]
+        contact_results = await ContactFinderService.find_contacts_bulk(urls[:10])
+        # Merge
+        for i, company in enumerate(companies):
+            if i < len(contact_results):
+                company["contacts"] = contact_results[i]
+
     return {
-        "email": email,
-        "valid": True,
-        "deliverable": True,
-        "disposable": False
+        "keyword": request.keyword,
+        "country": request.country,
+        "companies_found": len(companies),
+        "results": companies
+    }
+
+
+@router.post("/upload-excel")
+async def upload_website_list(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Excel yükleme — yakında eklenecek"""
+    return {
+        "message": "Excel yükleme özelliği yakında eklenecek",
+        "status": "pending"
     }
