@@ -16,7 +16,7 @@ export default function FairsPage() {
 
                 {/* Info Box */}
                 <div className="bg-[#00e5a008] border border-[#00e5a022] rounded-xl p-4 mb-6 text-sm text-[#94a3b8] leading-7">
-                    <strong>Örnek Senaryo:</strong> Konya'da piston üreten bir firma olarak Automechanika fuarlarına (Almanya, Dubai, Brezilya, Çin, ABD)
+                    <strong>Örnek Senaryo:</strong> Konya&apos;da piston üreten bir firma olarak Automechanika fuarlarına (Almanya, Dubai, Brezilya, Çin, ABD)
                     katılmak maliyetli. Bu modül katılımcı listelerini tarayarak sadece sizinle eşleşen firmaları Excel olarak verir.
                 </div>
 

@@ -34,6 +34,7 @@ export default function MapsPage() {
             await exportMapsToExcel(formData.country, keywords, formData.city);
             alert('Excel dosyası başarıyla indirildi!');
         } catch (error) {
+            console.error('Export error:', error);
             alert('Excel indirme başarısız oldu.');
         } finally {
             setExcelLoading(false);

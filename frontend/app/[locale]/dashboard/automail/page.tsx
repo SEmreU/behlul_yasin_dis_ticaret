@@ -17,7 +17,7 @@ export default function AutoMailPage() {
                 {/* Warning Box */}
                 <div className="bg-[#f59e0b08] border border-[#f59e0b44] rounded-xl p-4 mb-6 text-sm text-[#94a3b8] leading-7">
                     <strong>⚠️ Anti-Spam Koruması:</strong> Her mail benzersiz içerikle oluşturulur, gönderim zamanları dağıtılır
-                    ve domain reputation korunur. Mailler spam'a düşmez.
+                    ve domain reputation korunur. Mailler spam&apos;a düşmez.
                 </div>
 
                 {/* Form */}

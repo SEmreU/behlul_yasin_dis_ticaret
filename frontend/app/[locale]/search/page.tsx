@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, Globe, FileCode, Image, Download } from 'lucide-react';
+import { Search, Globe, FileCode, Image as ImageIcon, Download } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function SearchPage() {
@@ -84,46 +84,42 @@ export default function SearchPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <button
                   onClick={() => setSearchType('multilang')}
-                  className={`p-3 border rounded-lg flex items-center gap-2 ${
-                    searchType === 'multilang'
+                  className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'multilang'
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Globe className="w-5 h-5" />
                   <span className="text-sm">8 Dilde</span>
                 </button>
                 <button
                   onClick={() => setSearchType('gtip')}
-                  className={`p-3 border rounded-lg flex items-center gap-2 ${
-                    searchType === 'gtip'
+                  className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'gtip'
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileCode className="w-5 h-5" />
                   <span className="text-sm">GTIP Kod</span>
                 </button>
                 <button
                   onClick={() => setSearchType('oem')}
-                  className={`p-3 border rounded-lg flex items-center gap-2 ${
-                    searchType === 'oem'
+                  className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'oem'
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileCode className="w-5 h-5" />
                   <span className="text-sm">OEM Kod</span>
                 </button>
                 <button
                   onClick={() => setSearchType('image')}
-                  className={`p-3 border rounded-lg flex items-center gap-2 ${
-                    searchType === 'image'
+                  className={`p-3 border rounded-lg flex items-center gap-2 ${searchType === 'image'
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-300'
-                  }`}
+                    }`}
                 >
-                  <Image className="w-5 h-5" />
+                  <ImageIcon className="w-5 h-5" />
                   <span className="text-sm">Görsel</span>
                 </button>
               </div>
@@ -140,11 +136,10 @@ export default function SearchPage() {
                     <button
                       key={lang.code}
                       onClick={() => toggleLanguage(lang.code)}
-                      className={`px-3 py-1 text-sm rounded-full border ${
-                        selectedLanguages.includes(lang.code)
+                      className={`px-3 py-1 text-sm rounded-full border ${selectedLanguages.includes(lang.code)
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-white text-gray-700 border-gray-300'
-                      }`}
+                        }`}
                     >
                       {lang.name}
                     </button>
@@ -164,8 +159,8 @@ export default function SearchPage() {
                   searchType === 'gtip'
                     ? 'Örn: 8409.91'
                     : searchType === 'oem'
-                    ? 'Örn: ABC12345'
-                    : 'Ürün adı girin...'
+                      ? 'Örn: ABC12345'
+                      : 'Ürün adı girin...'
                 }
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

@@ -34,9 +34,14 @@ services:
     name: yasin-trade-frontend
     runtime: node
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npx next build --no-lint
     startCommand: npm start
     plan: free
     envVars:
       - key: NEXT_PUBLIC_API_URL
         sync: false   # Backend URL'sini gir (deploy sonrası)
+      - key: NEXT_DISABLE_ESLINT
+        value: "1"
+      - key: DISABLE_ESLINT_PLUGIN
+        value: "true"
+

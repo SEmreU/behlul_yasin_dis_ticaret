@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 export default function GDPRBanner() {
     const [isVisible, setIsVisible] = useState(false);
@@ -63,7 +64,7 @@ export default function GDPRBanner() {
                                     <li><strong>Haklarınız:</strong> Verilerinize erişim, düzeltme, silme ve itiraz hakları KVKK kapsamında korunmaktadır</li>
                                 </ul>
                                 <p className="mt-3 text-xs text-[#64748b]">
-                                    Detaylı bilgi için: <a href="/privacy" className="text-[#00e5a0] hover:underline">Gizlilik Politikası</a>
+                                    Detaylı bilgi için: <Link href="/privacy" className="text-[#00e5a0] hover:underline">Gizlilik Politikası</Link>
                                 </p>
                             </div>
                         )}

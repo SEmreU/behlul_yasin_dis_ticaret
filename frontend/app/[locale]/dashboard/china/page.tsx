@@ -10,7 +10,7 @@ export default function ChinaPage() {
                 <div className="mb-7">
                     <h2 className="text-[26px] font-bold m-0 text-[#e2e8f0]">🇨🇳 Çin Pazarı Özel Arama</h2>
                     <p className="text-[15px] text-[#64748b] mt-2">
-                        Çin'den tedarikçi bulmak isteyenler için özelleştirilmiş arama motoru
+                        Çin&apos;den tedarikçi bulmak isteyenler için özelleştirilmiş arama motoru
                     </p>
                 </div>
 

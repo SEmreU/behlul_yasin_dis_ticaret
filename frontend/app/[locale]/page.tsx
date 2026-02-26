@@ -3,10 +3,10 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Globe, Search, Mail, BarChart, MapPin, Bot, Building2, TrendingUp } from 'lucide-react';
+import { Globe } from 'lucide-react';
 
 export default function HomePage() {
-  const t = useTranslations();
+  // const t = useTranslations();
   const [currentLang, setCurrentLang] = useState('tr');
   const [isScrolled, setIsScrolled] = useState(false);
 

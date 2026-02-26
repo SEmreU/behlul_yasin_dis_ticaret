@@ -101,7 +101,7 @@ export default function SearchPage() {
                                     onChange={(e) => setFormData({ ...formData, gtip: e.target.value })}
                                 />
                                 <span className="block text-xs text-[#475569] mt-1.5">
-                                    Bağlı / Tamamlayıcı GTİP'ler otomatik sorgulanır
+                                    Bağlı / Tamamlayıcı GTİP&apos;ler otomatik sorgulanır
                                 </span>
                             </div>
 

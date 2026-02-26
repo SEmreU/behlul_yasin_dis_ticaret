@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ExcelExportButton from '@/components/ExcelExportButton';
-import { exportMarketplaceToExcel, exportRFQsToExcel, isAuthorityEmail } from '@/lib/api-helpers';
+import { exportMarketplaceToExcel, exportRFQsToExcel } from '@/lib/api-helpers';
 
 const B2B_PLATFORMS = [
     { id: 'tradekey', name: 'TradeKey', region: 'Global', desc: 'RFQ tarama, alım talepleri', color: '#0ea5e9', type: 'rfq' },
@@ -92,7 +92,8 @@ export default function B2BPage() {
                 await exportMarketplaceToExcel(searchQuery, selectedPlatforms);
             }
             alert('Excel dosyası başarıyla indirildi!');
-        } catch (error) {
+        } catch (e) {
+            console.error('Export error:', e);
             alert('Excel indirme başarısız oldu.');
         } finally {
             setExcelLoading(false);
@@ -123,8 +124,8 @@ export default function B2BPage() {
                     <button
                         onClick={() => setActiveTab('search')}
                         className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'search'
-                                ? 'bg-gradient-to-br from-[#00e5a0] to-[#00b87a] text-[#0a1628]'
-                                : 'bg-transparent border border-[#1e3a5f] text-[#94a3b8] hover:bg-[#0d1f35]'
+                            ? 'bg-gradient-to-br from-[#00e5a0] to-[#00b87a] text-[#0a1628]'
+                            : 'bg-transparent border border-[#1e3a5f] text-[#94a3b8] hover:bg-[#0d1f35]'
                             }`}
                     >
                         🔍 Ürün Arama
@@ -132,8 +133,8 @@ export default function B2BPage() {
                     <button
                         onClick={() => setActiveTab('rfq')}
                         className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'rfq'
-                                ? 'bg-gradient-to-br from-[#00e5a0] to-[#00b87a] text-[#0a1628]'
-                                : 'bg-transparent border border-[#1e3a5f] text-[#94a3b8] hover:bg-[#0d1f35]'
+                            ? 'bg-gradient-to-br from-[#00e5a0] to-[#00b87a] text-[#0a1628]'
+                            : 'bg-transparent border border-[#1e3a5f] text-[#94a3b8] hover:bg-[#0d1f35]'
                             }`}
                     >
                         📋 RFQ Tarama
@@ -149,8 +150,8 @@ export default function B2BPage() {
                                 key={p.id}
                                 onClick={() => togglePlatform(p.id)}
                                 className={`bg-gradient-to-br from-[#0d1f35] to-[#0a1628] border rounded-[14px] p-4 cursor-pointer transition-all ${isSelected
-                                        ? 'border-[#00e5a0] shadow-lg shadow-[#00e5a022]'
-                                        : 'border-[#1e3a5f44] hover:border-[#1e3a5f]'
+                                    ? 'border-[#00e5a0] shadow-lg shadow-[#00e5a022]'
+                                    : 'border-[#1e3a5f44] hover:border-[#1e3a5f]'
                                     }`}
                             >
                                 <div className="flex justify-between items-start">
@@ -252,7 +253,7 @@ export default function B2BPage() {
                                 <tbody>
                                     {activeTab === 'rfq' ? (
                                         // RFQ Results
-                                        searchResults.rfqs?.map((item: any, i: number) => (
+                                        searchResults.rfqs?.map((item: { source: string; title: string; company?: string; country?: string; url: string }, i: number) => (
                                             <tr key={i} className="border-b border-[#1e3a5f22] last:border-0">
                                                 <td className="px-4 py-3 text-sm text-[#cbd5e1]">
                                                     <span className="px-2 py-1 bg-[#0ea5e922] text-[#0ea5e9] rounded text-xs">
@@ -274,7 +275,7 @@ export default function B2BPage() {
                                     ) : (
                                         // Product Results
                                         Object.entries(searchResults.results || {}).flatMap(([platform, items]: [string, any]) =>
-                                            items.map((item: any, i: number) => (
+                                            items.map((item: { source?: string; title: string; supplier?: string; company?: string; price?: string; url: string }, i: number) => (
                                                 <tr key={`${platform}-${i}`} className="border-b border-[#1e3a5f22] last:border-0">
                                                     <td className="px-4 py-3 text-sm text-[#cbd5e1]">
                                                         <span className="px-2 py-1 bg-[#0ea5e922] text-[#0ea5e9] rounded text-xs">

@@ -10,13 +10,13 @@ export default function USAPage() {
                 <div className="mb-7">
                     <h2 className="text-[26px] font-bold m-0 text-[#e2e8f0]">🇺🇸 ABD Pazarı Detaylı Arama</h2>
                     <p className="text-[15px] text-[#64748b] mt-2">
-                        Amerika'daki ithalatçıları daha detaylı bulun — bilgi yoğunluğunda kaybolmayın
+                        Amerika&apos;daki ithalatçıları daha detaylı bulun — bilgi yoğunluğunda kaybolmayın
                     </p>
                 </div>
 
                 {/* Info Box */}
                 <div className="bg-[#00e5a008] border border-[#00e5a022] rounded-xl p-4 mb-6 text-sm text-[#94a3b8] leading-7">
-                    ABD büyük bir pazar ama bilgi fazlalığı yüzünden doğru müşteriyi bulmak zor. Bu modül ABD'ye özel veri kaynakları
+                    ABD büyük bir pazar ama bilgi fazlalığı yüzünden doğru müşteriyi bulmak zor. Bu modül ABD&apos;ye özel veri kaynakları
                     (Thomasnet, ImportGenius, Panjiva) ile hedefe yönelik sonuçlar üretir.
                 </div>
 

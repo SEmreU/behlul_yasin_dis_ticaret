@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await authService.getCurrentUser();
       setUser(userData);
-    } catch (error) {
+    } catch (_error) {
       authService.removeToken();
       setUser(null);
     } finally {
@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (data: RegisterData) => {
-    const user = await authService.register(data);
+    // const user = await authService.register(data);
+    await authService.register(data);
     // Auto-login after registration
     await login({ email: data.email, password: data.password });
   };
