@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # Other APIs
     GOOGLE_MAPS_API_KEY: Optional[str] = None
     SENDGRID_API_KEY: Optional[str] = None
+    RESEND_API_KEY: Optional[str] = None
+
+    # SMTP (SendGrid yoksa bu kullanılır)
+    SMTP_HOST: Optional[str] = None        # Örn: smtp.gmail.com
+    SMTP_PORT: Optional[str] = "587"       # 587 (TLS) veya 465 (SSL)
+    SMTP_USER: Optional[str] = None        # SMTP kullanıcı adı / email
+    SMTP_PASSWORD: Optional[str] = None    # SMTP şifresi / uygulama şifresi
+    FROM_EMAIL: Optional[str] = None       # Gönderici email adresi
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"

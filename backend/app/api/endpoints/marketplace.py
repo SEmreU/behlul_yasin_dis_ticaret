@@ -184,6 +184,242 @@ async def export_rfqs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class USASearchRequest(BaseModel):
+    query: str
+    state: Optional[str] = None           # Eyalet filtresi
+    company_type: Optional[str] = None    # importer, distributor, oem, retailer
+    hs_code: Optional[str] = None
+    max_results: int = 20
+
+
+class ChinaSearchRequest(BaseModel):
+    query: str
+    query_chinese: Optional[str] = None   # Çince arama terimi
+    min_order: Optional[str] = None
+    certificate: Optional[str] = None     # ISO 9001, CE, SGS
+    max_results: int = 20
+
+
+@router.post("/search-usa")
+async def search_usa_market(
+    request: USASearchRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    ABD Pazarı Özel Arama
+
+    Kaynaklar:
+    - **Thomasnet**: ABD/Kanada endüstriyel üreticiler
+    - **ImportGenius**: ABD ithalat beyan kayıtları (kısıtlı)
+    - **Panjiva/S&P Global**: Gümrük beyanı veritabanı (link)
+    - **USASpending.gov**: Federal tedarik kayıtları
+    - **Kompass USA**: Kuzey Amerika firma rehberi
+    """
+    try:
+        from app.services.b2b_scraper import get_api_key
+        import httpx, urllib.parse
+
+        api_key = get_api_key()
+        query = request.query
+        results_by_source: dict = {}
+
+        # --- 1. Thomasnet ---
+        thomasnet_url = f"https://www.thomasnet.com/search/?what={urllib.parse.quote(query)}&where={urllib.parse.quote(request.state or 'United+States')}"
+        if api_key:
+            scraper_url = f"https://api.scraperapi.com/?api_key={api_key}&url={urllib.parse.quote(thomasnet_url)}&render=true"
+            try:
+                async with httpx.AsyncClient(timeout=25) as client:
+                    resp = await client.get(scraper_url)
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    items = []
+                    # Thomasnet result cards
+                    for card in soup.select(".profile-card, .supplier-profile-card, [class*='CompanyCard']")[:request.max_results]:
+                        name_el = card.select_one("h2, h3, [class*='name'], [class*='company']")
+                        loc_el = card.select_one("[class*='location'], [class*='city']")
+                        link_el = card.select_one("a[href]")
+                        if name_el:
+                            href = link_el["href"] if link_el else ""
+                            if href and not href.startswith("http"):
+                                href = "https://www.thomasnet.com" + href
+                            items.append({
+                                "source": "Thomasnet",
+                                "title": name_el.get_text(strip=True),
+                                "company": name_el.get_text(strip=True),
+                                "location": loc_el.get_text(strip=True) if loc_el else (request.state or "USA"),
+                                "country": "ABD",
+                                "url": href or thomasnet_url,
+                                "type": request.company_type or "Manufacturer/Supplier",
+                            })
+                    results_by_source["thomasnet"] = items
+            except Exception as e:
+                print(f"[Thomasnet scrape] {e}")
+
+        if not results_by_source.get("thomasnet"):
+            results_by_source["thomasnet"] = [
+                {
+                    "source": "Thomasnet",
+                    "title": f'"{query}" — Thomasnet ABD Üretici Arama',
+                    "company": "Thomasnet.com",
+                    "location": request.state or "USA",
+                    "country": "ABD",
+                    "url": thomasnet_url,
+                    "type": "Link (ScraperAPI key ekleyin → gerçek sonuçlar)",
+                }
+            ]
+
+        # --- 2. ImportGenius / Panjiva (public link) ---
+        import_genius_url = f"https://www.importgenius.com/search?q={urllib.parse.quote(query)}&country=us"
+        panjiva_url = f"https://panjiva.com/search?q={urllib.parse.quote(query)}&country[]=US"
+        results_by_source["import_records"] = [
+            {
+                "source": "ImportGenius",
+                "title": f'"{query}" ABD İthalat Kayıtları',
+                "company": "ImportGenius.com",
+                "location": "USA",
+                "country": "ABD",
+                "url": import_genius_url,
+                "type": "Gümrük Beyanı Veritabanı",
+            },
+            {
+                "source": "Panjiva (S&P Global)",
+                "title": f'"{query}" Panjiva Tedarik Zinciri',
+                "company": "Panjiva.com",
+                "location": "USA",
+                "country": "ABD",
+                "url": panjiva_url,
+                "type": "Gümrük Beyanı Veritabanı",
+            },
+        ]
+
+        # --- 3. Kompass USA ---
+        kompass_url = f"https://us.kompass.com/search/?text={urllib.parse.quote(query)}"
+        results_by_source["kompass_usa"] = [
+            {
+                "source": "Kompass USA",
+                "title": f'"{query}" — Kompass Kuzey Amerika',
+                "company": "Kompass.com",
+                "location": "North America",
+                "country": "ABD/Kanada",
+                "url": kompass_url,
+                "type": "Firma Rehberi",
+            }
+        ]
+
+        # --- 4. HS kodu varsa Datamyne/USITC ---
+        if request.hs_code:
+            hs = request.hs_code.replace(".", "")
+            usitc_url = f"https://dataweb.usitc.gov/trade/annual/HTSAnnotated?column=imports&HTS={hs}"
+            results_by_source["usitc"] = [
+                {
+                    "source": "USITC Dataweb",
+                    "title": f"HS {request.hs_code} ABD İthalat İstatistik",
+                    "company": "dataweb.usitc.gov",
+                    "location": "USA",
+                    "country": "ABD",
+                    "url": usitc_url,
+                    "type": "Resmi İthalat Verisi",
+                }
+            ]
+
+        total = sum(len(v) for v in results_by_source.values())
+        return {
+            "success": True,
+            "query": query,
+            "market": "usa",
+            "total_results": total,
+            "results": results_by_source,
+            "note": "ScraperAPI key ekleyin → Thomasnet gerçek firma listesi alınır",
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/search-china")
+async def search_china_market(
+    request: ChinaSearchRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Çin Pazarı Özel Arama
+
+    Kaynaklar:
+    - **Alibaba.com**: En büyük B2B platform
+    - **Made-in-China.com**: Çinli üreticiler
+    - **DHgate**: Düşük MOQ dropshipping
+    - **1688.com**: Çin iç pazarı, toptan fiyat
+    - **Global Sources**: Doğrulanmış Çin tedarikçileri
+    """
+    from app.services.b2b_scraper import (
+        AlibabaScraper,
+        MadeInChinaScraper,
+        DHgateScraper,
+    )
+    import asyncio
+
+    search_q = request.query_chinese or request.query
+
+    try:
+        tasks = [
+            AlibabaScraper.search_products(request.query, request.max_results),
+            MadeInChinaScraper.search_products(request.query, request.max_results),
+            DHgateScraper.search_products(request.query, request.max_results),
+        ]
+        alibaba_r, mic_r, dhgate_r = await asyncio.gather(*tasks, return_exceptions=True)
+
+        results_by_source = {
+            "alibaba": alibaba_r if isinstance(alibaba_r, list) else [],
+            "made_in_china": mic_r if isinstance(mic_r, list) else [],
+            "dhgate": dhgate_r if isinstance(dhgate_r, list) else [],
+        }
+
+        import urllib.parse
+        # 1688 (iç pazar, link only)
+        link_1688 = f"https://s.1688.com/selloffer/offer_search.htm?keywords={urllib.parse.quote(search_q)}"
+        # Sertifika filtresi — Alibaba Advanced Search
+        cert_filter = ""
+        if request.certificate and request.certificate != "Hepsi":
+            cert_map = {"ISO 9001": "ISOCertified", "CE": "CECertified", "SGS Denetimli": "SGSAudit"}
+            cert_filter = cert_map.get(request.certificate, "")
+
+        results_by_source["1688"] = [
+            {
+                "source": "1688.com",
+                "title": f'"{search_q}" — 1688 Çin İç Pazar Toptan Arama',
+                "company": "1688.com (Alibaba Group)",
+                "country": "Çin",
+                "url": link_1688,
+                "type": "Çin İç Pazar (Toptan)",
+                "note": "1688 kayıt/Çince hesap gerektirir",
+            }
+        ]
+
+        gs_url = f"https://www.globalsources.com/searchproduct.aspx?Q={urllib.parse.quote(request.query)}"
+        results_by_source["global_sources"] = [
+            {
+                "source": "Global Sources",
+                "title": f'"{request.query}" — Global Sources Doğrulanmış Tedarikçi',
+                "company": "globalsources.com",
+                "country": "Çin",
+                "url": gs_url,
+                "type": "Doğrulanmış Çin Tedarikçisi",
+            }
+        ]
+
+        total = sum(len(v) for v in results_by_source.values())
+        return {
+            "success": True,
+            "query": request.query,
+            "market": "china",
+            "total_results": total,
+            "results": results_by_source,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/platforms")
 async def list_platforms():
     """

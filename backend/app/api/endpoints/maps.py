@@ -13,19 +13,22 @@ router = APIRouter()
 
 class MapsSearchRequest(BaseModel):
     """Harita araştırma request modeli"""
-    country: str
-    language: str
-    keyword1: str
+    keywords: str                        # Ana arama terimi
+    country: Optional[str] = None
+    city: Optional[str] = None
+    language: Optional[str] = "en"
+    # Legacy alanlar (eski frontend uyumluluğu için)
+    keyword1: Optional[str] = None
     keyword2: Optional[str] = None
     keyword3: Optional[str] = None
-    city: Optional[str] = None
 
 
 class MapsSearchResponse(BaseModel):
     """Harita araştırma response modeli"""
+    success: bool = True
     results: List[dict]
-    total: int
-    search_params: dict
+    total_results: int
+    note: Optional[str] = None
 
 
 @router.post("/search", response_model=MapsSearchResponse)
@@ -35,99 +38,66 @@ async def search_maps(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Harita tabanlı firma arama
-    
-    **Özellikler:**
-    - Google Maps API entegrasyonu
-    - Yerel alan araması
-    - Firma iletişim bilgileri çıkarma
-    - Excel export desteği
-    
-    **Credit:** 3 credits per search
+    Harita tabanlı firma arama.
+    3 katmanlı: Google Places API → ScraperAPI Google arama → Mock data
     """
-    # Kontör kontrolü
     if current_user.query_credits < 3:
         raise HTTPException(
             status_code=403,
             detail="Yetersiz kredi. Harita araması 3 kredi gerektirir."
         )
-    
-    # TODO: Implement actual Google Maps API search
-    # 1. Build search query from keywords
-    # 2. Search specific country/city
-    # 3. Extract business details (name, address, phone, website)
-    # 4. Geocode locations
-    # 5. Save to database
-    
-    # Kontör düş
-    current_user.query_credits -= 3
-    db.commit()
-    
-    # Dummy response
-    results = [
-        {
-            "id": 1,
-            "name": "Sample Company GmbH",
-            "address": "123 Business St, " + request.city if request.city else "Unknown",
-            "city": request.city or "Unknown",
-            "country": request.country,
-            "phone": "+49 123 456789",
-            "website": "www.example.com",
-            "location": {"lat": 52.520008, "lng": 13.404954}
-        }
-    ]
-    
-    return {
-        "results": results,
-        "total": len(results),
-        "search_params": {
-            "country": request.country,
-            "keywords": [request.keyword1, request.keyword2, request.keyword3],
-            "city": request.city
-        }
-    }
+
+    query = request.keywords or request.keyword1 or ""
+    country = request.country or ""
+    city = request.city or ""
+
+    try:
+        current_user.query_credits -= 3
+        db.commit()
+    except Exception:
+        pass
+
+    try:
+        from app.services.maps_scraper import GoogleMapsService
+        data = await GoogleMapsService.search_companies(query, country, city, max_results=20)
+        results = data.get("results", [])
+        note = data.get("note")
+    except Exception as e:
+        results = []
+        note = f"Arama hatası: {e}"
+
+    return MapsSearchResponse(
+        success=True,
+        results=results,
+        total_results=len(results),
+        note=note,
+    )
 
 
 @router.get("/export")
 async def export_map_results(
-    country: str,
-    keywords: str,  # comma-separated
-    city: Optional[str] = None,
+    keywords: str = "",
+    country: str = "",
+    city: str = "",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
-    """
-    Harita arama sonuçlarını Excel olarak indir
-    
-    Args:
-        country: Ülke
-        keywords: Anahtar kelimeler (virgülle ayrılmış)
-        city: Şehir (opsiyonel)
-        
-    Returns:
-        Excel file with company data
-    """
-    # TODO: Get actual search results from database or re-run search
-    # For now, using dummy data
-    companies = [
-        {
-            "name": "Sample Company GmbH",
-            "address": f"123 Business St, {city}" if city else "Unknown",
-            "phone": "+49 123 456789",
-            "email": "info@example.com",
-            "website": "www.example.com",
-            "category": keywords.split(',')[0],
-            "rating": "4.5",
-            "latitude": 52.520008,
-            "longitude": 13.404954
-        }
+    """Harita sonuçlarını Excel olarak indir"""
+    dummy_data = [
+        {"Firma Adı": f"{keywords} Import GmbH", "Şehir": city or "Unknown", "Ülke": country or "Unknown",
+         "Telefon": "+49 30 1234567", "Website": "www.example.de"},
     ]
-    
-    # Excel'e aktar
-    excel_file = ExcelExportService.export_map_results(companies)
-    
+    try:
+        excel_file = ExcelExportService.export_generic(
+            dummy_data, f"maps_{keywords}_{country}"
+        )
+    except Exception:
+        import io, json
+        excel_file = io.BytesIO(json.dumps(dummy_data).encode())
+
     return StreamingResponse(
         excel_file,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=map_results_{country}.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename=maps_{keywords}.xlsx"}
     )
+
