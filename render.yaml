@@ -30,6 +30,24 @@ services:
         sync: false
       - key: SCRAPERAPI_KEY
         sync: false
+      # ── Dış Ticaret Veritabanları (ücretli — key alınınca ekleyin) ──────────
+      - key: UN_COMTRADE_API_KEY
+        sync: false       # comtradeapi.un.org — ücretsiz kayıt gerekli
+      - key: TRADEATLAS_API_KEY
+        sync: false       # tradeatlas.com — Türk gümrük verisi
+      - key: IMPORTGENIUS_API_KEY
+        sync: false       # importgenius.com — ABD ithalat kayıtları
+      - key: PANJIVA_API_KEY
+        sync: false       # panjiva.com — küresel sevkiyat verisi
+      - key: TRADEMO_API_KEY
+        sync: false       # trademo.com — enterprise gümrük zekası
+      - key: EUROPAGES_API_KEY
+        sync: false       # europages.com — Avrupa B2B rehberi
+      - key: TRADEMAP_API_KEY
+        sync: false       # trademap.org — ITC ticaret istatistikleri
+      - key: GLOBAL_BUYERS_API_KEY
+        sync: false       # globalbuyersonline.com
+
 
   # Frontend — Next.js
   - type: web
