@@ -5,18 +5,26 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ExcelExportButton from '@/components/ExcelExportButton';
 import { exportMarketplaceToExcel, exportRFQsToExcel } from '@/lib/api-helpers';
 
+// key: ScraperAPI key = tüm platformlar için yeterli
+// account: platformda hesap açılması gerekenler (opsiyonel — daha derin veri)
 const B2B_PLATFORMS = [
-    { id: 'tradekey', name: 'TradeKey', region: 'Global', desc: 'RFQ tarama, alım talepleri', color: '#0ea5e9', type: 'rfq' },
-    { id: 'ecplaza', name: 'ECPlaza', region: 'Güney Kore', desc: 'Kore pazarı, Asya tedarikçileri', color: '#8b5cf6', type: 'b2b' },
-    { id: 'eworldtrade', name: 'eWorldTrade', region: 'Global', desc: 'Global ticaret, RFQ desteği', color: '#10b981', type: 'rfq' },
-    { id: 'indiamart', name: 'IndiaMART', region: 'Hindistan', desc: 'Hindistan\'ın en büyüğü', color: '#f59e0b', type: 'b2b' },
-    { id: 'tradeindia', name: 'TradeIndia', region: 'Hindistan', desc: 'İhracatçı veritabanı', color: '#06b6d4', type: 'b2b' },
-    { id: 'ec21', name: 'EC21', region: 'Global', desc: '7M+ ürün, OEM arama', color: '#a855f7', type: 'b2b' },
-    { id: 'kompass', name: 'Kompass', region: 'Avrupa', desc: 'Avrupa firmaları, yetkili mail', color: '#f97316', type: 'directory' },
-    { id: 'thomasnet', name: 'Thomasnet', region: 'Kuzey Amerika', desc: 'ABD/Kanada üreticileri', color: '#e11d48', type: 'directory' },
-    { id: 'alibaba', name: 'Alibaba', region: 'Çin & Global', desc: 'En büyük B2B platformu', color: '#ff6600', type: 'b2b' },
-    { id: 'made-in-china', name: 'Made-in-China', region: 'Çin', desc: 'Çin kaynaklı üreticiler', color: '#e11d48', type: 'b2b' },
-    { id: 'dhgate', name: 'DHgate', region: 'Çin & Global', desc: 'Düşük MOQ, dropshipping', color: '#06b6d4', type: 'b2b' },
+    // ─── Çin Platformları ───────────────────────────────────
+    { id: 'alibaba', name: 'Alibaba.com', region: 'Çin & Global', desc: 'Dünyanın en büyük B2B platformu', color: '#ff6600', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'made-in-china', name: 'Made-in-China', region: 'Çin', desc: 'Doğrulanmış Çin üreticileri', color: '#dc2626', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'dhgate', name: 'DHgate', region: 'Çin & Global', desc: 'Düşük MOQ, dropshipping dostu', color: '#06b6d4', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'aliexpress', name: 'AliExpress', region: 'Çin', desc: 'Perakende/dropshipping, MOQ yok', color: '#f12711', type: 'b2b', key: 'scraperapi', account: false },
+    { id: '1688', name: '1688.com', region: 'Çin (iç pazar)', desc: 'Fabrika fiyatı, Alibaba\'dan %40 ucuz', color: '#e63939', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'global-sources', name: 'Global Sources', region: 'Çin', desc: 'CE/ISO sertifikalı ihracatçılar', color: '#7c3aed', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'yiwugo', name: 'Yiwugo.com', region: 'Çin (Yiwu)', desc: 'Dünyanın en büyük küçük parça pazarı', color: '#0891b2', type: 'b2b', key: 'scraperapi', account: false },
+    // ─── Küresel B2B ────────────────────────────────────────
+    { id: 'tradekey', name: 'TradeKey', region: 'Global', desc: 'RFQ & alım ilanları tarama', color: '#0ea5e9', type: 'rfq', key: 'scraperapi', account: false },
+    { id: 'ec21', name: 'EC21', region: 'Kore & Global', desc: '7M+ ürün, OEM numarası arama', color: '#a855f7', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'indiamart', name: 'IndiaMart', region: 'Hindistan', desc: 'Hindistan\'ın en büyük B2B ağı', color: '#f59e0b', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'tradeindia', name: 'TradeIndia', region: 'Hindistan', desc: 'Hindistan ihracatçı veritabanı', color: '#10b981', type: 'b2b', key: 'scraperapi', account: false },
+    { id: 'ecplaza', name: 'ECPlaza', region: 'Güney Kore', desc: 'Kore & Asya B2B ağı', color: '#8b5cf6', type: 'b2b', key: 'scraperapi', account: false },
+    // ─── Firma Rehberleri ───────────────────────────────────
+    { id: 'kompass', name: 'Kompass', region: 'Avrupa', desc: 'Avrupa firma rehberi, iletişim bilgisi', color: '#f97316', type: 'directory', key: 'scraperapi', account: false },
+    { id: 'thomasnet', name: 'Thomasnet', region: 'ABD', desc: 'ABD endüstriyel üreticiler, B2B', color: '#e11d48', type: 'directory', key: 'scraperapi', account: false },
 ];
 
 export default function B2BPage() {
@@ -110,7 +118,7 @@ export default function B2BPage() {
                     <div>
                         <h2 className="text-[26px] font-bold m-0 text-[#e2e8f0]">🌐 B2B Platform Tarama</h2>
                         <p className="text-[15px] text-[#64748b] mt-2">
-                            10 global B2B pazaryerinden ürün ve RFQ taraması yapın
+                            14 global B2B platformundan ürün, tedarikçi ve RFQ taraması
                         </p>
                     </div>
                     {searchResults && (
@@ -168,7 +176,10 @@ export default function B2BPage() {
                                         {isSelected && <span className="text-[#0a1628] text-xs">✓</span>}
                                     </div>
                                 </div>
-                                <p className="text-[13px] text-[#94a3b8] mt-2.5 mb-0">{p.desc}</p>
+                                <p className="text-[13px] text-[#94a3b8] mt-2 mb-1">{p.desc}</p>
+                                <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#00e5a011] text-[#00e5a0] border border-[#00e5a022]">
+                                    🔑 ScraperAPI Key Yeterli
+                                </span>
                             </div>
                         );
                     })}
