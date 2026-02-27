@@ -234,7 +234,30 @@ async def chat_with_bot(
         ).first()
         
         if not config:
-            raise HTTPException(status_code=404, detail="Chatbot not configured")
+            # Varsayılan config oluştur (ilk çalıştırmada)
+            import uuid as _uuid
+            config = ChatbotConfig(
+                user_id=1,  # ilk admin kullanıcı
+                bot_name="TradeBot",
+                welcome_message="Merhaba! Yasin Dış Ticaret'e hoşgeldiniz. Size nasıl yardımcı olabilirim?",
+                supported_languages=["tr", "en", "de"],
+                goal=ChatbotGoal.EMAIL,
+                company_info={"name": "Yasin Dış Ticaret"},
+                embed_code=f'<script src="https://yasin-trade-backend.onrender.com/chatbot/embed.js"></script>',
+                is_active=True,
+            )
+            db.add(config)
+            try:
+                db.commit()
+                db.refresh(config)
+            except Exception:
+                db.rollback()
+                # Başka bir session zaten oluşturduysa tekrar sorgula
+                config = db.query(ChatbotConfig).filter(
+                    ChatbotConfig.is_active == True
+                ).first()
+                if not config:
+                    raise HTTPException(status_code=500, detail="Chatbot config oluşturulamadı")
         
         conversation = ChatbotConversation(
             config_id=config.id,
