@@ -119,71 +119,50 @@ async def generate_ai_response(
     collected_data: dict
 ) -> str:
     """
-    AI ile chatbot yanıtı oluştur
-    Desteklenen provider'lar: OpenAI, Groq, Hugging Face
+    AI ile chatbot yanıtı — Groq (birincil, ücretsiz) → HuggingFace → Pattern fallback
     """
     from app.core.config import settings
-    
-    # Sistem promptu oluştur
+
     system_prompt = f"""Sen {config.bot_name} adlı bir B2B satış asistanısın.
 Şirket bilgileri: {config.company_info or 'Bilgi yok'}
+Görevin: Müşteriye yardımcı olmak, {"email " if config.goal in ["email", "both"] else ""}{"telefon " if config.goal in ["phone", "both"] else ""}toplamak.
+Toplanan: {collected_data} | Kısa, doğal, max 2-3 cümle."""
 
-Görevin:
-- Müşteriye yardımcı olmak
-- {"Email adresi" if config.goal in ["email", "both"] else ""}
-- {"Telefon numarası" if config.goal in ["phone", "both"] else ""} toplamak
-- Profesyonel ve samimi olmak
-- Kısa ve öz yanıtlar vermek (max 2-3 cümle)
-
-Toplanan bilgiler: {collected_data}
-
-Kurallar:
-1. Spam gibi davranma
-2. Doğal konuş
-3. Bilgi toplandıysa teşekkür et
-4. Ürün/hizmet hakkında bilgi ver
-"""
-    
-    # Mesaj geçmişini hazırla
     messages = [{"role": "system", "content": system_prompt}]
-    for msg in conversation_history[-5:]:  # Son 5 mesaj
-        messages.append({
-            "role": msg.get("role", "user"),
-            "content": msg.get("content", "")
-        })
+    for msg in conversation_history[-5:]:
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
     messages.append({"role": "user", "content": message})
-    
-    # OpenAI ile dene
-    if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "sk-placeholder":
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                temperature=0.7,
-                max_tokens=150
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            print(f"OpenAI error: {e}")
-    
-    # Groq ile dene (BEDAVA!)
-    if hasattr(settings, 'GROQ_API_KEY') and settings.GROQ_API_KEY:
+
+    # ── 1. Groq (birincil, ücretsiz) ─────────────────────────────────────────
+    groq_key = ""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.api_setting import ApiSetting
+        import base64 as _b64
+        _db = SessionLocal()
+        _s = _db.query(ApiSetting).filter(ApiSetting.key_name == "GROQ_API_KEY").first()
+        _db.close()
+        if _s and _s.key_value:
+            groq_key = _b64.b64decode(_s.key_value.encode()).decode()
+    except Exception:
+        pass
+    if not groq_key:
+        groq_key = getattr(settings, "GROQ_API_KEY", "") or ""
+
+    if groq_key:
         try:
             from groq import Groq
-            client = Groq(api_key=settings.GROQ_API_KEY)
-            
+            client = Groq(api_key=groq_key)
             response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",  # Bedava ve hızlı
+                model="llama-3.1-8b-instant",
                 messages=messages,
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=150,
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"Groq error: {e}")
+            print(f"[Chatbot] Groq error: {e}")
+        
     
     # Hugging Face ile dene
     if hasattr(settings, 'HUGGINGFACE_API_KEY') and settings.HUGGINGFACE_API_KEY:
