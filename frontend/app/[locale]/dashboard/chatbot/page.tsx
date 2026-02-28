@@ -4,7 +4,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import api from '@/lib/api';
 
-const uuidv4 = () => crypto.randomUUID();
+const uuidv4 = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+};
 
 // ── Tema ──────────────────────────────────────────────────────────────────────
 const C = {
@@ -73,7 +76,7 @@ export default function ChatbotPage() {
     // ── Init ─────────────────────────────────────────────────────────────────
     useEffect(() => {
         setMessages([{ id: uuidv4(), role: 'assistant', content: config.welcome_message, timestamp: new Date() }]);
-        api.get('/api/v1/chatbot/stats').then(r => {
+        api.get('/chatbot/stats').then(r => {
             setSessionStats({
                 totalConversations: r.data.total_conversations,
                 leadsCollected: r.data.leads_collected,
@@ -89,7 +92,7 @@ export default function ChatbotPage() {
     const fetchHistory = useCallback(async () => {
         setHistoryLoading(true);
         try {
-            const r = await api.get('/api/v1/chatbot/history?limit=40');
+            const r = await api.get('/chatbot/history?limit=40');
             setHistory(r.data.conversations || []);
         } catch { }
         setHistoryLoading(false);
@@ -99,7 +102,7 @@ export default function ChatbotPage() {
 
     const loadConv = async (item: HistoryItem) => {
         try {
-            const r = await api.get(`/api/v1/chatbot/history/${item.session_id}`);
+            const r = await api.get(`/chatbot/history/${item.session_id}`);
             const msgs: Message[] = (r.data.messages || []).map((m: { role: string; content: string; timestamp: string }) => ({
                 id: uuidv4(), role: m.role as 'user' | 'assistant',
                 content: m.content, timestamp: new Date(m.timestamp),
@@ -116,7 +119,7 @@ export default function ChatbotPage() {
         setInputText('');
         setIsLoading(true);
         try {
-            const r = await api.post('/api/v1/chatbot/chat', { session_id: sessionId, message: text, language: 'tr' });
+            const r = await api.post('/chatbot/chat', { session_id: sessionId, message: text, language: 'tr' });
             setMessages(p => [...p, { id: uuidv4(), role: 'assistant', content: r.data.reply, timestamp: new Date() }]);
         } catch {
             setMessages(p => [...p, { id: uuidv4(), role: 'assistant', content: '⚠️ Sunucuya bağlanılamadı.', timestamp: new Date() }]);
@@ -129,7 +132,7 @@ export default function ChatbotPage() {
     const saveConfig = async () => {
         setConfigSaving(true);
         try {
-            const r = await api.post('/api/v1/chatbot/config', config);
+            const r = await api.post('/chatbot/config', config);
             setEmbedCode(r.data.embed_code || '');
         } catch { alert('Kayıt başarısız'); }
         setConfigSaving(false);
