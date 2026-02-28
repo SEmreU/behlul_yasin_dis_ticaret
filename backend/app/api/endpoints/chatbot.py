@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
 from pydantic import BaseModel
 import re
@@ -277,31 +278,41 @@ async def chat_with_bot(
     phone = extract_phone(message.message)
     
     if email:
+        conversation.collected_data = dict(conversation.collected_data or {})
         conversation.collected_data['email'] = email
+        flag_modified(conversation, 'collected_data')
     if phone:
+        conversation.collected_data = dict(conversation.collected_data or {})
         conversation.collected_data['phone'] = phone
+        flag_modified(conversation, 'collected_data')
     
     # Mesajı kaydet
-    conversation.messages.append({
+    msgs = list(conversation.messages or [])
+    msgs.append({
         "role": "user",
         "content": message.message,
         "timestamp": datetime.utcnow().isoformat()
     })
+    conversation.messages = msgs
+    flag_modified(conversation, 'messages')
     
     # AI yanıt oluştur
     ai_reply = await generate_ai_response(
         message.message,
         conversation.messages,
         config,
-        conversation.collected_data
+        conversation.collected_data or {}
     )
     
     # AI yanıtını kaydet
-    conversation.messages.append({
+    msgs2 = list(conversation.messages or [])
+    msgs2.append({
         "role": "assistant",
         "content": ai_reply,
         "timestamp": datetime.utcnow().isoformat()
     })
+    conversation.messages = msgs2
+    flag_modified(conversation, 'messages')
     
     # Conversation tamamlandı mı kontrol et
     is_completed = False
@@ -435,3 +446,75 @@ async def get_chatbot_stats(
         "active_chats": active_chats
     }
 
+
+@router.get("/history")
+async def get_chat_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 20,
+    skip: int = 0
+):
+    """
+    Sohbet geçmişini listele
+    """
+    config = db.query(ChatbotConfig).filter(
+        ChatbotConfig.user_id == current_user.id
+    ).first()
+
+    if not config:
+        return {"conversations": [], "total": 0}
+
+    conversations = (
+        db.query(ChatbotConversation)
+        .filter(ChatbotConversation.config_id == config.id)
+        .order_by(ChatbotConversation.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    total = (
+        db.query(ChatbotConversation)
+        .filter(ChatbotConversation.config_id == config.id)
+        .count()
+    )
+
+    result = []
+    for conv in conversations:
+        msgs = conv.messages or []
+        first_user = next((m["content"] for m in msgs if m.get("role") == "user"), "")
+        result.append({
+            "session_id": conv.session_id,
+            "message_count": len(msgs),
+            "first_message": first_user[:80],
+            "collected_data": conv.collected_data or {},
+            "is_completed": conv.is_completed,
+            "language": conv.detected_language,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+        })
+
+    return {"conversations": result, "total": total}
+
+
+@router.get("/history/{session_id}")
+async def get_conversation_detail(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Belirli bir oturumun mesajlarını getir
+    """
+    conv = db.query(ChatbotConversation).filter(
+        ChatbotConversation.session_id == session_id
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Konuşma bulunamadı")
+
+    return {
+        "session_id": conv.session_id,
+        "messages": conv.messages or [],
+        "collected_data": conv.collected_data or {},
+        "is_completed": conv.is_completed,
+        "language": conv.detected_language,
+        "created_at": conv.created_at.isoformat() if conv.created_at else None,
+    }
