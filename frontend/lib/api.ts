@@ -36,4 +36,19 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * apiSilent — 401 geldiğinde login'e yönlendirmez.
+ * Chatbot geçmişi ve stats gibi auth-optional istekler için kullanın.
+ */
+export const apiSilent = axios.create({
+  baseURL: `${API_URL}/api/v1`,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+apiSilent.interceptors.request.use((config) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 export default api;

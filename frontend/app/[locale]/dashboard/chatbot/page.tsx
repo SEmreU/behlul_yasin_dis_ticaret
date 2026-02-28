@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import api from '@/lib/api';
+import api, { apiSilent } from '@/lib/api';
 
 const uuidv4 = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -70,19 +70,20 @@ export default function ChatbotPage() {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [selectedConv, setSelectedConv] = useState<{ messages: Message[]; item: HistoryItem } | null>(null);
     const [sessionStats, setSessionStats] = useState({ totalConversations: 0, leadsCollected: 0, activeChats: 0 });
+    const [historyAuthError, setHistoryAuthError] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // ── Init ─────────────────────────────────────────────────────────────────
     useEffect(() => {
         setMessages([{ id: uuidv4(), role: 'assistant', content: config.welcome_message, timestamp: new Date() }]);
-        api.get('/chatbot/stats').then(r => {
+        apiSilent.get('/chatbot/stats').then(r => {
             setSessionStats({
                 totalConversations: r.data.total_conversations,
                 leadsCollected: r.data.leads_collected,
                 activeChats: r.data.active_chats,
             });
-        }).catch(() => { });
+        }).catch(() => { }); // 401 olursa sessizce geç
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -91,10 +92,14 @@ export default function ChatbotPage() {
     // ── History ───────────────────────────────────────────────────────────────
     const fetchHistory = useCallback(async () => {
         setHistoryLoading(true);
+        setHistoryAuthError(false);
         try {
-            const r = await api.get('/chatbot/history?limit=40');
+            const r = await apiSilent.get('/chatbot/history?limit=40');
             setHistory(r.data.conversations || []);
-        } catch { }
+        } catch (e: unknown) {
+            const status = (e as { response?: { status?: number } })?.response?.status;
+            if (status === 401) setHistoryAuthError(true);
+        }
         setHistoryLoading(false);
     }, []);
 
@@ -102,7 +107,7 @@ export default function ChatbotPage() {
 
     const loadConv = async (item: HistoryItem) => {
         try {
-            const r = await api.get(`/chatbot/history/${item.session_id}`);
+            const r = await apiSilent.get(`/chatbot/history/${item.session_id}`);
             const msgs: Message[] = (r.data.messages || []).map((m: { role: string; content: string; timestamp: string }) => ({
                 id: uuidv4(), role: m.role as 'user' | 'assistant',
                 content: m.content, timestamp: new Date(m.timestamp),
@@ -343,7 +348,18 @@ export default function ChatbotPage() {
                                         Yükleniyor…
                                     </div>
                                 )}
-                                {!historyLoading && history.length === 0 && (
+                                {!historyLoading && historyAuthError && (
+                                    <div style={{ padding: 40, textAlign: 'center', color: C.t3, fontSize: 13 }}>
+                                        <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+                                        Geçmişi görmek için giriş yapmanız gerekiyor
+                                        <br />
+                                        <button onClick={() => { window.location.href = '/tr/login'; }}
+                                            style={{ marginTop: 12, background: C.goldD, border: `1px solid ${C.bdA}`, color: C.gold, padding: '6px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+                                            Giriş Yap
+                                        </button>
+                                    </div>
+                                )}
+                                {!historyLoading && !historyAuthError && history.length === 0 && (
                                     <div style={{ padding: 40, textAlign: 'center', color: C.t3, fontSize: 13 }}>
                                         <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
                                         Henüz sohbet geçmişi yok
