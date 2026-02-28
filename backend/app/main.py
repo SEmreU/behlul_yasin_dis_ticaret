@@ -22,19 +22,10 @@ def on_startup():
 
 
 # CORS
-allowed_origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://yasin-trade-frontend.onrender.com"
-]
-if settings.FRONTEND_URL:
-    if settings.FRONTEND_URL not in allowed_origins:
-        allowed_origins.append(settings.FRONTEND_URL)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
