@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -115,9 +116,22 @@ export default function LoginPage() {
         </button>
 
         {/* Footer */}
-        <p className="text-center text-[13px] text-[#475569] mt-5">
-          Erişim için yöneticinizle iletişime geçin
-        </p>
+        <div>
+          <p className="text-center text-[13px] text-[#475569] mt-5">
+            Erişim için yöneticinizle iletişime geçin
+          </p>
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-[#1e3a5f]" />
+            <span className="text-xs text-[#475569]">veya</span>
+            <div className="flex-1 h-px bg-[#1e3a5f]" />
+          </div>
+          <p className="text-center text-[13px] text-[#64748b]">
+            Hesabın yok mu?{' '}
+            <Link href="/tr/register" className="text-[#00e5a0] font-semibold hover:text-[#00ffa8] transition-colors">
+              Kayıt Ol
+            </Link>
+          </p>
+        </div>
       </div>
 
       <style jsx global>{`
