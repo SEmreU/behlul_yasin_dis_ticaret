@@ -213,6 +213,39 @@ async def validate_url_async(url: str, timeout: int = 8) -> bool:
         return False
 
 
+def try_selectors(soup, selectors: list):
+    """
+    CSS selector listesini sırayla dener; ilk None olmayan eleman döner.
+    Hiçbiri bulunamazsa None döner.
+    """
+    for sel in selectors:
+        el = soup.select_one(sel)
+        if el:
+            logger.debug("try_selectors hit: %s", sel)
+            return el
+    return None
+
+
+def safe_url(href: str, base: str = "") -> str | None:
+    """
+    URL güvenlik zinciri:
+    1. None veya boş → None
+    2. '#' veya 'javascript:' ile başlıyor → None
+    3. Protocol-relative veya relative → normalize_url ile absolute yap
+    4. Geçerli http/https değil → None
+    Geçerliyse temizlenmiş absolute URL, değilse None döner.
+    """
+    if not href:
+        return None
+    href = href.strip()
+    if href.startswith("#") or href.lower().startswith("javascript:"):
+        return None
+    result = normalize_url(href, base)
+    if not is_valid_url(result):
+        return None
+    return result
+
+
 # ─── BaseScraper Sınıfı ────────────────────────────────────────────────────────
 
 class BaseScraper:

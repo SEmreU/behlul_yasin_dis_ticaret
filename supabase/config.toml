@@ -1,0 +1,52 @@
+# Supabase Local Development Config
+# Dokümantasyon: https://supabase.com/docs/reference/cli/config
+
+[api]
+# Local API portu
+port = 54321
+# Supabase Studio (admin UI) portu
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+# PostgreSQL portu
+port = 54322
+# Supabase Dashboard DB bağlantısı (local)
+major_version = 15
+
+[studio]
+# Supabase Studio portu (local)
+port = 54323
+enabled = true
+
+[inbucket]
+# Email testing (local Mailhog benzeri)
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+file_size_limit = "50MiB"
+
+[auth]
+# JWT secret (local için)
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+    "https://yasin-trade-frontend.onrender.com",
+    "http://localhost:3000"
+]
+
+# Token süreleri
+jwt_expiry = 3600
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false   # Geliştirme sırasında false bırakın
+
+[auth.external.google]
+enabled = false   # Google OAuth aktif edildiyse true yapın
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+redirect_uri = ""

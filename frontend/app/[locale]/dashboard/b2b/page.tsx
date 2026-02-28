@@ -265,8 +265,16 @@ export default function B2BPage() {
                                 </thead>
                                 <tbody>
                                     {activeTab === 'rfq' ? (
-                                        // RFQ Results
-                                        searchResults.rfqs?.map((item: { source: string; title: string; company?: string; country?: string; url: string }, i: number) => (
+                                        // RFQ Results — standart format: rfq_title, rfq_url, buyer_name, buyer_country
+                                        searchResults.rfqs?.map((item: {
+                                            source: string;
+                                            rfq_title?: string;
+                                            rfq_url?: string | null;
+                                            url_status?: number | null;
+                                            buyer_name?: string;
+                                            buyer_country?: string;
+                                            quantity_needed?: string;
+                                        }, i: number) => (
                                             <tr key={i} className="border-b border-[#1e3a5f22] last:border-0">
                                                 <td className="px-4 py-3 text-sm text-[#cbd5e1]">
                                                     <span className="px-2 py-1 bg-[#0ea5e922] text-[#0ea5e9] rounded text-xs">
@@ -274,21 +282,36 @@ export default function B2BPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-[#cbd5e1]">
-                                                    <strong>{item.title}</strong>
+                                                    <strong>{item.rfq_title || '—'}</strong>
+                                                    {item.quantity_needed && (
+                                                        <span className="ml-2 text-xs text-[#94a3b8]">({item.quantity_needed})</span>
+                                                    )}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.company || 'N/A'}</td>
-                                                <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.country || 'N/A'}</td>
+                                                <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.buyer_name || '—'}</td>
+                                                <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.buyer_country || '—'}</td>
                                                 <td className="px-4 py-3 text-sm text-[#cbd5e1]">
-                                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[#00e5a0] hover:underline">
-                                                        🔗 Görüntüle
-                                                    </a>
+                                                    {item.rfq_url ? (
+                                                        <a href={item.rfq_url} target="_blank" rel="noopener noreferrer" className="text-[#00e5a0] hover:underline">
+                                                            🔗 Görüntüle
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-[#64748b] text-xs">⚠ Link yok</span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
-                                        // Product Results
-                                        Object.entries(searchResults.results || {}).flatMap(([platform, items]: [string, any]) =>
-                                            items.map((item: { source?: string; title: string; supplier?: string; company?: string; price?: string; url: string }, i: number) => (
+                                        // Product Results — standart format: product_name, product_url, supplier_name
+                                        Object.entries(searchResults.results || {}).flatMap(([platform, items]: [string, unknown]) =>
+                                            (items as Array<{
+                                                source?: string;
+                                                product_name?: string;
+                                                product_url?: string | null;
+                                                url_status?: number | null;
+                                                supplier_name?: string;
+                                                supplier_country?: string;
+                                                price?: string;
+                                            }>).map((item, i: number) => (
                                                 <tr key={`${platform}-${i}`} className="border-b border-[#1e3a5f22] last:border-0">
                                                     <td className="px-4 py-3 text-sm text-[#cbd5e1]">
                                                         <span className="px-2 py-1 bg-[#0ea5e922] text-[#0ea5e9] rounded text-xs">
@@ -296,14 +319,23 @@ export default function B2BPage() {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-[#cbd5e1]">
-                                                        <strong>{item.title}</strong>
+                                                        <strong>{item.product_name || '—'}</strong>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.supplier || item.company || 'N/A'}</td>
-                                                    <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.price || 'N/A'}</td>
                                                     <td className="px-4 py-3 text-sm text-[#cbd5e1]">
-                                                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[#00e5a0] hover:underline">
-                                                            🔗 Görüntüle
-                                                        </a>
+                                                        {item.supplier_name || '—'}
+                                                        {item.supplier_country && (
+                                                            <span className="ml-1 text-xs text-[#64748b]">({item.supplier_country})</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-[#cbd5e1]">{item.price || '—'}</td>
+                                                    <td className="px-4 py-3 text-sm text-[#cbd5e1]">
+                                                        {item.product_url ? (
+                                                            <a href={item.product_url} target="_blank" rel="noopener noreferrer" className="text-[#00e5a0] hover:underline">
+                                                                🔗 Görüntüle
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-[#64748b] text-xs">⚠ Link yok</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))

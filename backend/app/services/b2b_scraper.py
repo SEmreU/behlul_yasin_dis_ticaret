@@ -25,6 +25,8 @@ from app.services.base_scraper import (
     normalize_url,
     clean_string,
     log_scrape_error,
+    try_selectors,
+    safe_url,
 )
 
 
@@ -75,47 +77,66 @@ class AlibabaScraper:
 
             for card in cards:
                 try:
-                    title_el = card.select_one(
-                        ".elements-title-normal__oSoze, .title, h2, [class*='title']"
-                    )
-                    price_el = card.select_one(
-                        ".elements-offer-price-normal__price, .price, [class*='price']"
-                    )
-                    supplier_el = card.select_one(
-                        ".elements-supplier-name__matxT, .company-name, [class*='supplier']"
-                    )
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [
+                        ".elements-title-normal__oSoze",
+                        "[data-content='title'] a",
+                        ".organic-list-offer__image a",
+                        "h2 a", "h2", "[class*='title']",
+                    ])
+                    price_el = try_selectors(card, [
+                        ".elements-offer-price-normal__price",
+                        ".price-current",
+                        "[data-price]",
+                        ".offer-price",
+                        "[class*='price']",
+                    ])
+                    supplier_el = try_selectors(card, [
+                        ".elements-supplier-name__matxT",
+                        ".company-name",
+                        "[class*='supplier']",
+                    ])
+                    link_el = try_selectors(card, [
+                        "[data-content='title'] a[href]",
+                        ".organic-list-offer__image a[href]",
+                        "h2 a[href]",
+                        "a[href]",
+                    ])
                     img_el = card.select_one("img[src], img[data-src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if href.startswith("//"):
-                        href = "https:" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.alibaba.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Tedarikçiye sorun",
-                        "supplier": supplier_el.get_text(strip=True) if supplier_el else "Verified Supplier",
-                        "image_url": (img_el.get("src") or img_el.get("data-src", "")) if img_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "alibaba",
-                        "country": "China",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(supplier_el.get_text()) if supplier_el else "Verified Supplier",
+                        "supplier_country": "China",
+                        "image_url": (img_el.get("src") or img_el.get("data-src")) if img_el else None,
+                        "relevance_score": 70,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("alibaba", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — Alibaba.com Ürün Araması",
-                "price": "Tedarikçiye sorun",
-                "supplier": "Verified Supplier",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "alibaba",
-                "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "product_name": f"{query} — Alibaba.com",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Verified Supplier",
+                "supplier_country": "China",
+                "note": "ScraperAPI key ekleyin → gerçek sonuçlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -141,44 +162,46 @@ class MadeInChinaScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".product-info, .J-product-item, .item-main, .product-container")[:max_results]:
                 try:
-                    title_el = card.select_one(".title a, h4 a, .pro-name, [class*='title']")
-                    price_el = card.select_one(".price, .product-price, [class*='price']")
-                    supplier_el = card.select_one(".company-name, .by-company, [class*='company']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".product-name a", ".prom-list-info a", ".title a", "h4 a", ".pro-name", "[class*='title']"])
+                    price_el = try_selectors(card, [".price", ".product-price", "[class*='price']"])
+                    supplier_el = try_selectors(card, [".company-name", ".by-company", "[class*='company']"])
+                    link_el = try_selectors(card, [".product-name a[href]", ".prom-list-info a[href]", "a[href]"])
                     img_el = card.select_one("img[src], img[data-src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if href.startswith("//"):
-                        href = "https:" + href
-                    elif not href.startswith("http"):
-                        href = "https://www.made-in-china.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.made-in-china.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Contact",
-                        "supplier": supplier_el.get_text(strip=True) if supplier_el else "Verified Manufacturer",
-                        "image_url": (img_el.get("src") or img_el.get("data-src", "")) if img_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "made-in-china",
-                        "country": "China",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(supplier_el.get_text()) if supplier_el else "Verified Manufacturer",
+                        "supplier_country": "China",
+                        "image_url": (img_el.get("src") or img_el.get("data-src")) if img_el else None,
+                        "relevance_score": 70,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("made-in-china", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — Made-in-China.com",
-                "price": "Contact supplier",
-                "supplier": "Verified Manufacturer",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "made-in-china",
-                "country": "China",
+                "product_name": f"{query} — Made-in-China.com",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Verified Manufacturer",
+                "supplier_country": "China",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -204,40 +227,47 @@ class DHgateScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".item.gallery-item, .proInfo, .item-block, [class*='product']")[:max_results]:
                 try:
-                    title_el = card.select_one(".item-title a, .proName, .title a, [class*='title'] a")
-                    price_el = card.select_one(".item-price, .price, [class*='price']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".item-name a[href]", ".gallery-name a[href]", ".item-title a", ".proName", "[class*='title'] a"])
+                    price_el = try_selectors(card, [".item-price", ".price", ".sale-price", "[class*='price']"])
+                    link_el = try_selectors(card, [".item-name a[href]", ".gallery-name a[href]", "a[href]"])
                     img_el = card.select_one("img[src], img[data-src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if href.startswith("//"):
-                        href = "https:" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.dhgate.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Contact",
-                        "image_url": (img_el.get("src") or img_el.get("data-src", "")) if img_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "dhgate",
-                        "country": "China",
-                        "note": "Low MOQ",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": "DHgate Seller",
+                        "supplier_country": "China",
+                        "image_url": (img_el.get("src") or img_el.get("data-src")) if img_el else None,
+                        "moq": "Low MOQ",
+                        "relevance_score": 65,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("dhgate", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — DHgate",
-                "price": "Contact supplier",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "dhgate",
-                "country": "China",
+                "product_name": f"{query} — DHgate",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "DHgate Seller",
+                "supplier_country": "China",
+                "moq": "Low MOQ",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -263,40 +293,47 @@ class AliExpressScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".product-item, ._1AtVbE, [class*='product']")[:max_results]:
                 try:
-                    title_el = card.select_one("h1, .title, a[title]")
-                    price_el = card.select_one(".price, [class*='price']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, ["a.product-card[href]", "h1", ".title", "a[title]", "[class*='title']"])
+                    price_el = try_selectors(card, [".price", "[class*='price']"])
+                    link_el = try_selectors(card, ["a.product-card[href]", "a[href]"])
                     img_el = card.select_one("img[src], img[data-src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title or len(title) < 5:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if href.startswith("//"):
-                        href = "https:" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.aliexpress.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Contact",
-                        "image_url": (img_el.get("src") or img_el.get("data-src", "")) if img_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "aliexpress",
-                        "country": "China",
-                        "note": "No MOQ — dropshipping",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": "AliExpress Seller",
+                        "supplier_country": "China",
+                        "image_url": (img_el.get("src") or img_el.get("data-src")) if img_el else None,
+                        "moq": "No MOQ",
+                        "relevance_score": 60,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("aliexpress", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — AliExpress",
-                "price": "Retail price",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "aliexpress",
-                "country": "China",
+                "product_name": f"{query} — AliExpress",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "AliExpress Seller",
+                "supplier_country": "China",
+                "moq": "No MOQ",
                 "note": "Toptan için Alibaba.com kullanın",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -322,40 +359,46 @@ class Alibaba1688Scraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".card-offer, .sm-offer-item, [class*='offer']")[:max_results]:
                 try:
-                    title_el = card.select_one(".title, [class*='title'], a[title]")
-                    price_el = card.select_one(".price, [class*='price']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".title", "[class*='title']", "a[title]"])
+                    price_el = try_selectors(card, [".price", "[class*='price']"])
+                    link_el = try_selectors(card, ["a[href]"])
                     img_el = card.select_one("img[src], img[data-src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if href.startswith("//"):
-                        href = "https:" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://s.1688.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Factory price",
-                        "image_url": (img_el.get("src") or img_el.get("data-src", "")) if img_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "1688",
-                        "country": "China",
-                        "note": "Alibaba'dan %30-50 ucuz — sourcing agent gerekebilir",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": "1688 Fabrikasi",
+                        "supplier_country": "China",
+                        "image_url": (img_el.get("src") or img_el.get("data-src")) if img_el else None,
+                        "note": "Alibaba'dan %30-50 ucuz",
+                        "relevance_score": 75,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("1688", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — 1688.com Fabrika Fiyatı",
-                "price": "%30-50 cheaper than Alibaba",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "1688",
-                "country": "China",
-                "note": "ScraperAPI key ekleyin + Çinçe arama terimi önerilir",
+                "product_name": f"{query} — 1688.com Fabrika Fiyatı",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "1688 Fabrikasi",
+                "supplier_country": "China",
+                "note": "ScraperAPI key + Çince arama terimi önerilir",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -381,43 +424,49 @@ class GlobalSourcesScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".product-cell, .item-cell, [class*='product']")[:max_results]:
                 try:
-                    title_el = card.select_one(".product-title, .title, a[title]")
-                    price_el = card.select_one(".price, [class*='price']")
-                    supplier_el = card.select_one(".supplier-name, [class*='supplier']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".product-name a", ".prd-title a", ".product-title", ".title", "a[title]"])
+                    price_el = try_selectors(card, [".price", "[class*='price']"])
+                    supplier_el = try_selectors(card, [".supplier-name", "[class*='supplier']"])
+                    cert_els = card.select(".cert-icon")
+                    link_el = try_selectors(card, [".product-name a[href]", ".prd-title a[href]", "a[href]"])
                     img_el = card.select_one("img[src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if not href.startswith("http"):
-                        href = "https://www.globalsources.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.globalsources.com")
+                    certs = [c.get("alt", "") for c in cert_els if c.get("alt")]
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Contact",
-                        "supplier": supplier_el.get_text(strip=True) if supplier_el else "Verified Supplier",
-                        "image_url": img_el["src"] if img_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "global-sources",
-                        "country": "China",
-                        "note": "CE / ISO doğrulanmış",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(supplier_el.get_text()) if supplier_el else "Verified Premium Supplier",
+                        "supplier_country": "China",
+                        "certifications": certs,
+                        "image_url": img_el["src"] if img_el else None,
+                        "relevance_score": 75,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("global-sources", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — Global Sources",
-                "price": "Contact supplier",
-                "supplier": "Verified Premium Supplier",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "global-sources",
-                "country": "China",
+                "product_name": f"{query} — Global Sources",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Verified Premium Supplier",
+                "supplier_country": "China",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -443,44 +492,53 @@ class TradeKeyScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".rfq-list-item, .lead-item, .buying-lead, [class*='rfq']")[:max_results]:
                 try:
-                    title_el = card.select_one(".rfq-title, .title, h3, [class*='title']")
-                    company_el = card.select_one(".company-name, .company, [class*='company']")
-                    country_el = card.select_one(".country, .location, [class*='country']")
-                    qty_el = card.select_one(".quantity, .qty, [class*='qty']")
+                    title_el = try_selectors(card, [".rfq-title a", ".rfq-title", ".title", "h3", "[class*='title']"])
+                    company_el = try_selectors(card, [".company-name", ".company", "[class*='company']"])
+                    country_el = try_selectors(card, [".country", ".location", "[class*='country']"])
+                    qty_el = try_selectors(card, [".quantity", ".qty", "[class*='qty']"])
+                    date_el = try_selectors(card, ["[data-date]", ".post-date", ".date"])
+                    link_el = try_selectors(card, [".rfq-title a[href]", "a[href]"])
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.tradekey.com")
+
                     results.append({
-                        "title": title[:200],
-                        "company": company_el.get_text(strip=True) if company_el else "Buyer",
-                        "country": country_el.get_text(strip=True) if country_el else (country or "Global"),
-                        "quantity": qty_el.get_text(strip=True) if qty_el else "Contact",
+                        "mode": "rfq_search",
                         "source": "tradekey",
-                        "type": "RFQ / Buying Lead",
-                        "url": url,
+                        "rfq_title": title[:200],
+                        "rfq_url": href,
+                        "url_status": None,
+                        "buyer_name": clean_string(company_el.get_text()) if company_el else "Global Buyer",
+                        "buyer_country": clean_string(country_el.get_text()) if country_el else (country or "Global"),
+                        "quantity_needed": clean_string(qty_el.get_text()) if qty_el else None,
+                        "posted_date": (date_el.get("data-date") or clean_string(date_el.get_text())) if date_el else None,
+                        "relevance_score": 70,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("tradekey", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — TradeKey Alım İlanları",
-                "company": "Global Buyer",
-                "country": country or "Global",
-                "quantity": "Contact",
+                "mode": "rfq_search",
                 "source": "tradekey",
-                "type": "RFQ / Buying Lead",
-                "url": url,
+                "rfq_title": f"{query} — TradeKey Alım İlanları",
+                "rfq_url": url,
+                "url_status": None,
+                "buyer_name": "Global Buyer",
+                "buyer_country": country or "Global",
                 "note": "ScraperAPI key ekleyin → gerçek alım ilanları görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
 
     @staticmethod
     async def search_products(query: str, max_results: int = 20) -> List[Dict]:
-        """Ürün araması (RFQ ile aynı endpoint'i kullan)"""
+        """Ürün araması — RFQ moduna yönlendir"""
         return await TradeKeyScraper.search_rfqs(query, max_results=max_results)
 
 
@@ -504,40 +562,45 @@ class EC21Scraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".prod_item, .product-item, .prd, [class*='prod']")[:max_results]:
                 try:
-                    title_el = card.select_one(".product-title, .tit, h3, [class*='title']")
-                    price_el = card.select_one(".price, .prc, [class*='price']")
-                    supplier_el = card.select_one(".company-name, .comp, [class*='company']")
-                    country_el = card.select_one(".country, [class*='country']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".product-title", ".tit", "h3", "[class*='title']"])
+                    price_el = try_selectors(card, [".price", ".prc", "[class*='price']"])
+                    supplier_el = try_selectors(card, [".company-name", ".comp", "[class*='company']"])
+                    country_el = try_selectors(card, [".country", "[class*='country']"])
+                    link_el = try_selectors(card, [".pname a[href]", ".product-list a[href]", "a[href]"])
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if not href.startswith("http"):
-                        href = "https://www.ec21.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.ec21.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "FOB Contact",
-                        "supplier": supplier_el.get_text(strip=True) if supplier_el else "Supplier",
-                        "country": country_el.get_text(strip=True) if country_el else "Korea/Global",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "ec21",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(supplier_el.get_text()) if supplier_el else "Supplier",
+                        "supplier_country": clean_string(country_el.get_text()) if country_el else "Korea/Global",
+                        "relevance_score": 70,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("ec21", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — EC21 Global B2B",
-                "price": "FOB Contact",
-                "supplier": "Verified Supplier",
-                "country": "Korea/Global",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "ec21",
+                "product_name": f"{query} — EC21 Global B2B",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Verified Supplier",
+                "supplier_country": "Korea/Global",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -567,39 +630,44 @@ class IndiaMARTScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".product-unit, .prd-blk, .p-unit, [class*='product']")[:max_results]:
                 try:
-                    title_el = card.select_one(".puT, .tit, .pTit, h3, [class*='title']")
-                    price_el = card.select_one(".price, .prc, [class*='price']")
-                    company_el = card.select_one(".company-name, .companyNm, [class*='company']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".puT", ".tit", ".pTit", "h3", "[class*='title']"])
+                    price_el = try_selectors(card, [".price", ".prc", "[class*='price']"])
+                    company_el = try_selectors(card, [".company-name", ".companyNm", "[class*='company']"])
+                    link_el = try_selectors(card, [".product-name a[href]", "h3 a[href]", "a[href]"])
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if not href.startswith("http"):
-                        href = "https://dir.indiamart.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://dir.indiamart.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "₹ Contact",
-                        "supplier": company_el.get_text(strip=True) if company_el else "Indian Manufacturer",
-                        "country": "India",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "indiamart",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(company_el.get_text()) if company_el else "Indian Manufacturer",
+                        "supplier_country": "India",
+                        "relevance_score": 70,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("indiamart", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — IndiaMart Manufacturer",
-                "price": "₹ Contact for price",
-                "supplier": "Indian Manufacturer",
-                "country": "India",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "indiamart",
+                "product_name": f"{query} — IndiaMart",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Indian Manufacturer",
+                "supplier_country": "India",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -625,39 +693,44 @@ class TradeIndiaScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".product-list, .prd-item, [class*='product']")[:max_results]:
                 try:
-                    title_el = card.select_one(".product-name, .title, h3")
-                    price_el = card.select_one(".price, [class*='price']")
-                    company_el = card.select_one(".company-name, [class*='company']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".product-name", ".title", "h3"])
+                    price_el = try_selectors(card, [".price", "[class*='price']"])
+                    company_el = try_selectors(card, [".company-name", "[class*='company']"])
+                    link_el = try_selectors(card, [".product-name a[href]", "h3 a[href]", "a[href]"])
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if not href.startswith("http"):
-                        href = "https://www.tradeindia.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.tradeindia.com")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Contact",
-                        "supplier": company_el.get_text(strip=True) if company_el else "Indian Exporter",
-                        "country": "India",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "tradeindia",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(company_el.get_text()) if company_el else "Indian Exporter",
+                        "supplier_country": "India",
+                        "relevance_score": 65,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("tradeindia", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} Exporter — TradeIndia",
-                "price": "Contact",
-                "supplier": "Indian Exporter",
-                "country": "India",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "tradeindia",
+                "product_name": f"{query} Exporter — TradeIndia",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Indian Exporter",
+                "supplier_country": "India",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -687,39 +760,44 @@ class ECPlazaScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".item, .product, [class*='item']")[:max_results]:
                 try:
-                    title_el = card.select_one(".product-name, .name, h3, a[title]")
-                    price_el = card.select_one(".price, [class*='price']")
-                    company_el = card.select_one(".company, [class*='company']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".product-name", ".name", "h3", "a[title]"])
+                    price_el = try_selectors(card, [".price", "[class*='price']"])
+                    company_el = try_selectors(card, [".company", "[class*='company']"])
+                    link_el = try_selectors(card, [".product-name a[href]", "a[title][href]", "a[href]"])
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if not href.startswith("http"):
-                        href = "https://www.ecplaza.net" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.ecplaza.net")
 
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Contact",
-                        "supplier": company_el.get_text(strip=True) if company_el else "Korean Supplier",
-                        "country": "South Korea",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "ecplaza",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": clean_string(company_el.get_text()) if company_el else "Korean Supplier",
+                        "supplier_country": "South Korea",
+                        "relevance_score": 65,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("ecplaza", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — ECPlaza Korean Supplier",
-                "price": "Contact",
-                "supplier": "Korean Supplier",
-                "country": "South Korea",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "ecplaza",
+                "product_name": f"{query} — ECPlaza Korean Supplier",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Korean Supplier",
+                "supplier_country": "South Korea",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -745,39 +823,43 @@ class KompassScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".company-card, .result-item, [class*='company']")[:max_results]:
                 try:
-                    name_el = card.select_one(".company-name, h2, h3, [class*='name']")
-                    country_el = card.select_one(".country, .location, [class*='country']")
-                    activity_el = card.select_one(".activity, .description, [class*='activity']")
-                    link_el = card.select_one("a[href]")
+                    name_el = try_selectors(card, [".company-name", "h2", "h3", "[class*='name']"])
+                    country_el = try_selectors(card, [".country", ".location", "[class*='country']"])
+                    activity_el = try_selectors(card, [".activity", ".description", "[class*='activity']"])
+                    link_el = try_selectors(card, [".company-name a[href]", "h2 a[href]", "a[href]"])
 
-                    name = name_el.get_text(strip=True) if name_el else ""
+                    name = clean_string(name_el.get_text()) if name_el else ""
                     if not name:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if not href.startswith("http"):
-                        href = "https://www.kompass.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.kompass.com")
 
                     results.append({
-                        "company": name[:200],
-                        "country": country_el.get_text(strip=True) if country_el else (country or "Europe"),
-                        "activity": activity_el.get_text(strip=True)[:200] if activity_el else "",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "kompass",
-                        "type": "Firma Rehberi",
+                        "product_name": name[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "supplier_name": name[:200],
+                        "supplier_country": clean_string(country_el.get_text()) if country_el else (country or "Europe"),
+                        "description": clean_string(activity_el.get_text())[:200] if activity_el else None,
+                        "relevance_score": 70,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("kompass", str(e))
                     continue
 
         if not results:
             results = [{
-                "company": f"{query} — Kompass Firma Rehberi",
-                "country": country or "Europe",
-                "activity": "Global trade directory",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "kompass",
-                "type": "Firma Rehberi",
+                "product_name": f"{query} — Kompass Firma Rehberi",
+                "product_url": url,
+                "url_status": None,
+                "supplier_name": query,
+                "supplier_country": country or "Europe",
                 "note": "ScraperAPI key ekleyin → gerçek firmalar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -813,39 +895,45 @@ class ThomasnetScraper:
                 ".profile-card, .supplier-profile-card, [class*='CompanyCard'], [class*='SupplierCard']"
             )[:max_results]:
                 try:
-                    name_el = card.select_one("h2, h3, [class*='name'], [class*='company']")
-                    loc_el = card.select_one("[class*='location'], [class*='city']")
-                    desc_el = card.select_one("[class*='description'], p")
-                    link_el = card.select_one("a[href]")
+                    name_el = try_selectors(card, ["h2", "h3", "[class*='name']", "[class*='company']"])
+                    loc_el = try_selectors(card, ["[class*='location']", "[class*='city']"])
+                    desc_el = try_selectors(card, ["[class*='description']", "p"])
+                    link_el = try_selectors(card, ["h2 a[href]", "h3 a[href]", "a[href]"])
 
-                    name = name_el.get_text(strip=True) if name_el else ""
+                    name = clean_string(name_el.get_text()) if name_el else ""
                     if not name:
                         continue
 
-                    href = link_el["href"] if link_el else url
-                    if href.startswith("/"):
-                        href = "https://www.thomasnet.com" + href
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.thomasnet.com")
 
                     results.append({
-                        "company": name[:200],
-                        "location": loc_el.get_text(strip=True) if loc_el else location,
-                        "description": desc_el.get_text(strip=True)[:200] if desc_el else "",
-                        "country": "USA",
-                        "product_url": href,
+                        "mode": "product_search",
                         "source": "thomasnet",
+                        "product_name": name[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "supplier_name": name[:200],
+                        "supplier_country": "USA",
+                        "location": clean_string(loc_el.get_text()) if loc_el else location,
+                        "description": clean_string(desc_el.get_text())[:200] if desc_el else None,
+                        "relevance_score": 80,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("thomasnet", str(e))
                     continue
 
         if not results:
             results = [{
-                "company": f"{query} Manufacturing Inc.",
-                "location": location or "USA",
-                "description": "Industrial manufacturer",
-                "country": "USA",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "thomasnet",
+                "product_name": f"{query} Manufacturing Inc.",
+                "product_url": url,
+                "url_status": None,
+                "supplier_name": f"{query} Manufacturing Inc.",
+                "supplier_country": "USA",
+                "location": location or "USA",
                 "note": "ScraperAPI key ekleyin → gerçek firmalar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]
@@ -875,36 +963,46 @@ class YiwugoScraper:
             soup = BeautifulSoup(html, "html.parser")
             for card in soup.select(".product-item, .item, [class*='product']")[:max_results]:
                 try:
-                    title_el = card.select_one(".product-name, .name, h3")
-                    price_el = card.select_one(".price, [class*='price']")
-                    link_el = card.select_one("a[href]")
+                    title_el = try_selectors(card, [".product-name", ".name", "h3"])
+                    price_el = try_selectors(card, [".price", "[class*='price']"])
+                    link_el = try_selectors(card, [".product-name a[href]", "a[href]"])
                     img_el = card.select_one("img[src]")
 
-                    title = title_el.get_text(strip=True) if title_el else ""
+                    title = clean_string(title_el.get_text()) if title_el else ""
                     if not title:
                         continue
 
+                    href = safe_url(link_el.get("href", "") if link_el else "", "https://www.yiwugo.com")
+
                     results.append({
-                        "title": title[:200],
-                        "price": price_el.get_text(strip=True) if price_el else "Ultra-competitive",
-                        "image_url": img_el["src"] if img_el else "",
-                        "product_url": link_el["href"] if link_el else url,
+                        "mode": "product_search",
                         "source": "yiwugo",
-                        "country": "China",
+                        "product_name": title[:200],
+                        "product_url": href,
+                        "url_status": None,
+                        "price": clean_string(price_el.get_text()) if price_el else None,
+                        "supplier_name": "Yiwu Market Seller",
+                        "supplier_country": "China",
+                        "image_url": img_el["src"] if img_el else None,
                         "note": "Yiwu market — world's largest small-commodity market",
+                        "relevance_score": 65,
                     })
-                except Exception:
+                except Exception as e:
+                    log_scrape_error("yiwugo", str(e))
                     continue
 
         if not results:
             results = [{
-                "title": f"{query} — Yiwu Market",
-                "price": "Ultra-competitive (factory direct)",
-                "image_url": "",
-                "product_url": url,
+                "mode": "product_search",
                 "source": "yiwugo",
-                "country": "China",
+                "product_name": f"{query} — Yiwu Market",
+                "product_url": url,
+                "url_status": None,
+                "price": None,
+                "supplier_name": "Yiwu Market Seller",
+                "supplier_country": "China",
                 "note": "ScraperAPI key ekleyin → gerçek ilanlar görünür",
+                "relevance_score": 30,
             }]
 
         return results[:max_results]

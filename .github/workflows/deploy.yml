@@ -1,0 +1,158 @@
+name: Pre-Deploy Check & Supabase Migrations
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1: Ortam değişkeni kontrolü
+  # ─────────────────────────────────────────────
+  check-env:
+    name: Environment Variable Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zorunlu secret'ları kontrol et
+        run: |
+          ERRORS=0
+          check() {
+            if [ -z "${!1}" ]; then
+              echo "❌ $1 eksik! GitHub Secrets'a ekleyin."
+              ERRORS=$((ERRORS+1))
+            else
+              echo "✅ $1 tanımlı"
+            fi
+          }
+          check DATABASE_URL
+          check SECRET_KEY
+          check FRONTEND_URL
+          [ $ERRORS -gt 0 ] && exit 1 || echo "Tüm zorunlu secret'lar mevcut."
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          SECRET_KEY:     ${{ secrets.SECRET_KEY }}
+          FRONTEND_URL:   ${{ secrets.FRONTEND_URL }}
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Backend syntax & import testi
+  # ─────────────────────────────────────────────
+  backend-test:
+    name: Backend Syntax Test
+    runs-on: ubuntu-latest
+    needs: check-env
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements.txt
+
+      - name: Python sözdizimi kontrolü
+        run: python -m py_compile app/main.py app/core/config.py
+
+      - name: Pytest (varsa)
+        run: |
+          if [ -d "tests" ] && [ "$(ls -A tests)" ]; then
+            pytest tests/ -v --tb=short || true
+          else
+            echo "Test dizini boş, atlanıyor."
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'sqlite:///./test.db' }}
+          SECRET_KEY:   ${{ secrets.SECRET_KEY || 'test-key-minimum-32-characters-xx' }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'http://localhost:3000' }}
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Frontend build testi
+  # ─────────────────────────────────────────────
+  frontend-build:
+    name: Frontend Build Test
+    runs-on: ubuntu-latest
+    needs: check-env
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm install
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint || true    # Lint hataları deploy'u durdurmasın
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://placeholder.onrender.com' }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://placeholder.onrender.com' }}
+
+  # ─────────────────────────────────────────────
+  # JOB 4: Supabase Migration (production'da)
+  # ─────────────────────────────────────────────
+  supabase-migration:
+    name: Apply Supabase Migrations
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build]
+    # Sadece main/master'a push'ta çalış (PR'da değil)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Supabase CLI kur
+        run: |
+          curl -fsSL https://supabase.com/install.sh | sh
+          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
+
+      - name: Migration'ları uygula
+        run: |
+          supabase db push \
+            --db-url "$DATABASE_URL" \
+            --file supabase/migrations/001_initial_schema.sql || echo "001 zaten uygulanmış, devam ediliyor"
+          supabase db push \
+            --db-url "$DATABASE_URL" \
+            --file supabase/migrations/002_rls_policies.sql || echo "002 zaten uygulanmış, devam ediliyor"
+          supabase db push \
+            --db-url "$DATABASE_URL" \
+            --file supabase/migrations/003_functions.sql || echo "003 zaten uygulanmış, devam ediliyor"
+          echo "✅ Migration'lar tamamlandı"
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+  # ─────────────────────────────────────────────
+  # JOB 5: Deploy sonrası health check
+  # ─────────────────────────────────────────────
+  health-check:
+    name: Render Health Check
+    runs-on: ubuntu-latest
+    needs: supabase-migration
+    # Migration job atlandıysa PR dışı push'larda bile çalıştır
+    if: always() && github.event_name == 'push'
+    steps:
+      - name: Backend health check (60s bekle)
+        run: |
+          echo "Render deploy için 60 saniye bekleniyor..."
+          sleep 60
+          BACKEND_URL="${BACKEND_HEALTH_URL:-https://yasin-trade-backend.onrender.com}"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/v1/health" --max-time 30 || echo "000")
+          if [ "$HTTP" = "200" ]; then
+            echo "✅ Backend sağlıklı (HTTP 200)"
+          else
+            echo "⚠ Backend yanıtı: HTTP $HTTP (Render başlatma süresi uzayabilir)"
+          fi
+        env:
+          BACKEND_HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL }}

@@ -1,5 +1,7 @@
 services:
-  # Backend — FastAPI
+  # ─────────────────────────────────────────────
+  # BACKEND — FastAPI (Python)
+  # ─────────────────────────────────────────────
   - type: web
     name: yasin-trade-backend
     runtime: python
@@ -7,49 +9,82 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     plan: free
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
     envVars:
+      # ── Zorunlu ──────────────────────────────
       - key: DATABASE_URL
-        sync: false       # Render paneline girin (Supabase URL)
+        sync: false          # Supabase > Settings > Database > Connection string (Transaction mode)
       - key: SECRET_KEY
-        generateValue: true
+        generateValue: true  # Render otomatik üretir
       - key: FRONTEND_URL
-        sync: false       # Frontend Render URL
+        sync: false          # https://yasin-trade-frontend.onrender.com
+
+      # ── Uygulama Ayarları ─────────────────────
       - key: ENVIRONMENT
         value: production
       - key: ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "1440"
+
+      # ── Redis (Render Redis veya Upstash) ─────
+      - key: REDIS_URL
+        sync: false          # Render > New Redis > Internal URL  veya  Upstash Redis URL
+
+      # ── AI Sağlayıcıları (En az birini girin) ─
       - key: GROQ_API_KEY
-        sync: false       # Render paneline girin
+        sync: false          # console.groq.com — ÜCRETSİZ önerilen
       - key: OPENAI_API_KEY
-        sync: false
+        sync: false          # platform.openai.com — ücretli
+      - key: ANTHROPIC_API_KEY
+        sync: false          # console.anthropic.com — ücretli, opsiyonel
+
+      # ── External API'ler ──────────────────────
       - key: GOOGLE_MAPS_API_KEY
-        sync: false
+        sync: false          # console.cloud.google.com > Maps Platform
+      - key: GOOGLE_CLIENT_ID
+        sync: false          # console.cloud.google.com > OAuth 2.0 — Google OAuth için
+
+      # ── Email (SendGrid veya SMTP birini seçin)
       - key: SENDGRID_API_KEY
+        sync: false          # app.sendgrid.com — opsiyonel
+      - key: RESEND_API_KEY
+        sync: false          # resend.com — opsiyonel
+      - key: SMTP_HOST
+        sync: false          # smtp.gmail.com vb. — opsiyonel
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
         sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+
+      # ── Web Scraping ──────────────────────────
       - key: SCRAPERAPI_KEY
-        sync: false
-      # ── Dış Ticaret Veritabanları (ücretli — key alınınca ekleyin) ──────────
+        sync: false          # scraperapi.com — B2B scraping için önerilen
+
+      # ── Dış Ticaret Veri Servisleri (opsiyonel)
       - key: UN_COMTRADE_API_KEY
-        sync: false       # comtradeapi.un.org — ücretsiz kayıt gerekli
+        sync: false          # comtradeapi.un.org
       - key: TRADEATLAS_API_KEY
-        sync: false       # tradeatlas.com — Türk gümrük verisi
+        sync: false          # tradeatlas.com
       - key: IMPORTGENIUS_API_KEY
-        sync: false       # importgenius.com — ABD ithalat kayıtları
+        sync: false          # importgenius.com
       - key: PANJIVA_API_KEY
-        sync: false       # panjiva.com — küresel sevkiyat verisi
+        sync: false          # panjiva.com
       - key: TRADEMO_API_KEY
-        sync: false       # trademo.com — enterprise gümrük zekası
+        sync: false          # trademo.com
       - key: EUROPAGES_API_KEY
-        sync: false       # europages.com — Avrupa B2B rehberi
+        sync: false          # europages.com
       - key: TRADEMAP_API_KEY
-        sync: false       # trademap.org — ITC ticaret istatistikleri
-      - key: GLOBAL_BUYERS_API_KEY
-        sync: false       # globalbuyersonline.com
+        sync: false          # trademap.org
 
-
-  # Frontend — Next.js
+  # ─────────────────────────────────────────────
+  # FRONTEND — Next.js (Node)
+  # ─────────────────────────────────────────────
   - type: web
     name: yasin-trade-frontend
     runtime: node
@@ -57,8 +92,12 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     plan: free
+    healthCheckPath: /
+    autoDeploy: true
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        sync: false       # Backend Render URL (örn: https://yasin-trade-backend.onrender.com)
+        sync: false          # https://yasin-trade-backend.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false          # https://yasin-trade-frontend.onrender.com
       - key: NODE_ENV
         value: production
