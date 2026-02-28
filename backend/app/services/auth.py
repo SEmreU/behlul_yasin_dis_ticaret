@@ -45,7 +45,24 @@ class AuthService:
         """Authenticate user and return access token"""
         user = db.query(User).filter(User.email == user_data.email).first()
 
-        if not user or not verify_password(user_data.password, user.hashed_password):
+        if not user:
+            print(f"[AUTH] Login FAILED — user not found: {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not user.hashed_password:
+            print(f"[AUTH] Login FAILED — no password set (Google OAuth user?): {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not verify_password(user_data.password, user.hashed_password):
+            print(f"[AUTH] Login FAILED — wrong password for: {user_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
