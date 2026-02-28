@@ -1,38 +1,35 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Boolean, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Float, Boolean, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+import uuid
 
 
 class VisitorIdentification(Base):
     """Ziyaretçi kimliklendirme - Web sitesi tracking"""
     __tablename__ = "visitor_identifications"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Tracking bilgileri
-    session_id = Column(String(100), unique=True, index=True)
-    ip_address = Column(String(50), index=True)
+    session_id = Column(Text, unique=True, index=True)
+    ip_address = Column(Text, index=True)
     user_agent = Column(Text)
-    referer = Column(String(500))
+    referer = Column(Text)
 
-    # Lokasyon (GPS veya IP-based)
+    # Lokasyon
     latitude = Column(Float)
     longitude = Column(Float)
-    location_source = Column(String(50))  # gps, ip_geolocation
+    location_source = Column(Text)
 
     # Eşleşen firma
-    identified_company_id = Column(Integer, ForeignKey("companies.id"), index=True)
-    confidence_score = Column(Float)  # 0-1 arası eşleşme skoru
-
-    # Ek bilgiler
-    country = Column(String(100))
-    city = Column(String(100))
+    identified_company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), index=True)
+    confidence_score = Column(Float)
 
     # Fingerprinting
-    browser_fingerprint = Column(String(200))
+    browser_fingerprint = Column(Text)
 
-    # İzin durumu
     location_permission_granted = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

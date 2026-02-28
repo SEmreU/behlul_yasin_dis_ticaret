@@ -1,7 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Enum, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text, Boolean, Enum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+import uuid
 import enum
 
 
@@ -17,22 +19,22 @@ class EmailCampaign(Base):
     """Email kampanyaları - Toplu mail gönderimi"""
     __tablename__ = "email_campaigns"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Kampanya sahibi
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Kampanya detayları
-    name = Column(String(200), nullable=False)
-    subject = Column(String(500), nullable=False)
-    body_template = Column(Text, nullable=False)  # HTML/Text email body
+    name = Column(Text, nullable=False)
+    subject = Column(Text)
+    body_template = Column(Text)
 
     # Hedef kitle
-    target_company_ids = Column(JSON)  # Array of company IDs
-    target_filters = Column(JSON)  # Filtre kriterleri
+    target_company_ids = Column(JSON)
+    target_filters = Column(JSON)
 
     # Eklentiler
-    attachments = Column(JSON)  # [{"name": "catalog.pdf", "url": "..."}]
+    attachments = Column(JSON)
 
     # İstatistikler
     total_recipients = Column(Integer, default=0)
@@ -42,7 +44,12 @@ class EmailCampaign(Base):
     bounced_count = Column(Integer, default=0)
 
     # Durum
-    status = Column(Enum(CampaignStatus), default=CampaignStatus.DRAFT, index=True)
+    status = Column(
+        Enum("draft", "scheduled", "sending", "completed", "paused", name="campaign_status", create_type=False),
+        default="draft",
+        server_default="draft",
+        index=True,
+    )
 
     # Zamanlama
     scheduled_at = Column(DateTime(timezone=True))
@@ -50,7 +57,7 @@ class EmailCampaign(Base):
     completed_at = Column(DateTime(timezone=True))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     user = relationship("User", back_populates="email_campaigns")
@@ -61,33 +68,31 @@ class CampaignEmail(Base):
     """Bireysel kampanya emailleri - tracking için"""
     __tablename__ = "campaign_emails"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    campaign_id = Column(Integer, ForeignKey("email_campaigns.id"), nullable=False, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    campaign_id = Column(UUID(as_uuid=True), ForeignKey("email_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), index=True)
 
     # Email detayları
-    recipient_email = Column(String(255), nullable=False)
-    recipient_name = Column(String(200))
+    recipient_email = Column(Text, nullable=False)
+    recipient_name = Column(Text)
 
     # Kişiselleştirilmiş içerik
-    personalized_subject = Column(String(500))
+    personalized_subject = Column(Text)
     personalized_body = Column(Text)
 
     # Tracking
-    sent_at = Column(DateTime(timezone=True))
-    opened_at = Column(DateTime(timezone=True))
-    clicked_at = Column(DateTime(timezone=True))
-    bounced_at = Column(DateTime(timezone=True))
+    tracking_id = Column(Text, unique=True, index=True)
 
-    # Status
     is_sent = Column(Boolean, default=False)
     is_opened = Column(Boolean, default=False)
     is_clicked = Column(Boolean, default=False)
     is_bounced = Column(Boolean, default=False)
 
-    # Tracking pixel/link
-    tracking_id = Column(String(100), unique=True, index=True)
+    sent_at = Column(DateTime(timezone=True))
+    opened_at = Column(DateTime(timezone=True))
+    clicked_at = Column(DateTime(timezone=True))
+    bounced_at = Column(DateTime(timezone=True))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

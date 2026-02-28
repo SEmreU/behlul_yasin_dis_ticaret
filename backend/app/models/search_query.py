@@ -1,7 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Enum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text, Enum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+import uuid
 import enum
 
 
@@ -17,25 +19,33 @@ class SearchQuery(Base):
     """Kullanıcı aramalarının loglama ve kontör takibi"""
     __tablename__ = "search_queries"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Kullanıcı ilişkisi
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Sorgu detayları
-    query_type = Column(Enum(QueryType), nullable=False, index=True)
-    query_parameters = Column(JSON)  # Arama parametreleri
+    query_type = Column(
+        Enum("product_search", "company_search", "map_scraping", "fair_search", "image_search", "b2b_search", "contact_search",
+             name="query_type", create_type=False),
+        nullable=False, index=True,
+    )
+    query_parameters = Column(JSON)
 
     # Sonuçlar
     results_count = Column(Integer, default=0)
-    results_data = Column(JSON)  # Kısmi sonuç verisi (preview)
+    results_data = Column(JSON)
 
     # Maliyet
     credits_used = Column(Integer, default=1)
 
     # Durum
-    status = Column(String(50), default="completed")  # completed, failed, pending
-    error_message = Column(String(500))
+    status = Column(
+        Enum("pending", "completed", "failed", name="query_status", create_type=False),
+        default="pending",
+        server_default="pending",
+    )
+    error_message = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

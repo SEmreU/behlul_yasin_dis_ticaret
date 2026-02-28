@@ -1,33 +1,29 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+import uuid
 
 
 class UserActivity(Base):
     """Kullanıcı modül bazlı kullanım aktivite logu"""
-    __tablename__ = "user_activities"
+    __tablename__ = "user_activity"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Kullanıcı
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Modül bilgisi
-    module = Column(String(100), nullable=False, index=True)
-    # Örn: "search", "chatbot", "maps", "contact", "fairs", "mail", "b2b", "visitor"
+    module = Column(Text, nullable=False, index=True)
 
-    action = Column(String(200))
-    # Örn: "product_search", "send_message", "scrape_map", "find_contact"
-
-    # Kredi tüketimi
-    credits_used = Column(Integer, default=0)
+    action = Column(Text)
 
     # İstek/yanıt özeti
-    meta_data = Column(JSON)
-    # Örn: {"query": "...", "results": 5, "status": "success"}
+    detail = Column(JSON)
 
-    status = Column(String(20), default="success")  # success, error, pending
+    ip_address = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 

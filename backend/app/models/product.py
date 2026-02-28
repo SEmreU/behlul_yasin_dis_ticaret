@@ -1,30 +1,27 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
+from sqlalchemy import Column, Text, JSON, DateTime
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.core.database import Base
+import uuid
 
 
 class Product(Base):
-    """Ürün bilgileri - GTIP kodları, OEM kodları, çoklu dil açıklamaları"""
+    """Ürün bilgileri"""
     __tablename__ = "products"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Ürün kodları
-    gtip_code = Column(String(20), index=True)  # GTIP/HS Code
-    oem_code = Column(String(100), index=True)  # OEM/Part number
+    gtip_code = Column(Text, index=True)
+    oem_code = Column(Text, index=True)
 
-    # Çoklu dil açıklamaları
-    descriptions = Column(JSON)  # {"tr": "...", "en": "...", "de": "..."}
+    descriptions = Column(JSON)
 
-    # Kategoriler
-    category = Column(String(200))
-    subcategory = Column(String(200))
+    category = Column(Text)
+    subcategory = Column(Text)
 
-    # Ürün resmi
-    image_url = Column(String(500))
+    image_url = Column(Text)
 
-    # Metadata
-    extra_metadata = Column(JSON)  # Ek bilgiler
+    metadata_ = Column("metadata", JSON)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

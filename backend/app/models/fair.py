@@ -1,42 +1,39 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, Date
+from sqlalchemy import Column, String, Text, JSON, DateTime, Date, Integer
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.core.database import Base
+import uuid
 
 
 class FairExhibitor(Base):
-    """Fuar katılımcıları - Almanya, Çin vb. fuarlar"""
+    """Fuar katılımcıları"""
     __tablename__ = "fair_exhibitors"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Fuar bilgileri
-    fair_name = Column(String(200), nullable=False, index=True)
-    fair_location = Column(String(200))  # Şehir, Ülke
+    fair_name = Column(Text, nullable=False, index=True)
+    fair_location = Column(Text)
     fair_date = Column(Date, index=True)
 
     # Katılımcı firma
-    company_name = Column(String(300), nullable=False, index=True)
-    booth_number = Column(String(50))
-    hall = Column(String(100))
+    company_name = Column(Text, nullable=False, index=True)
+    booth_number = Column(Text)
+    hall = Column(Text)
 
     # İletişim
-    country = Column(String(100), index=True)
-    city = Column(String(100))
-    website = Column(String(500))
-    email = Column(String(255))
-    phone = Column(String(50))
+    country = Column(Text, index=True)
+    city = Column(Text)
+    website = Column(Text)
+    email = Column(Text)
+    phone = Column(Text)
 
     # Ürün/Kategori
-    product_categories = Column(JSON)  # Array of categories
+    product_categories = Column(JSON)
     product_description = Column(Text)
 
-    # Eşleşme skoru (kullanıcı ürünü ile)
-    match_score = Column(Integer)  # 0-100
-    matched_keywords = Column(JSON)  # Eşleşen anahtar kelimeler
-
-    # Metadata
-    logo_url = Column(String(500))
-    extra_metadata = Column(JSON)
+    # Eşleşme skoru
+    match_score = Column(Integer)
+    matched_keywords = Column(JSON)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

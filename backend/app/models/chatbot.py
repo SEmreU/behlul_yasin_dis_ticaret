@@ -1,7 +1,9 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, ForeignKey, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+import uuid
 import enum
 
 
@@ -16,17 +18,17 @@ class ChatbotConfig(Base):
     """Chatbot konfigürasyonu"""
     __tablename__ = "chatbot_configs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
     # Bot ayarları
     bot_name = Column(String(100), default="TradeBot")
     welcome_message = Column(Text, nullable=False)
-    supported_languages = Column(JSON, default=["tr", "en"])  # ["tr", "en", "de", ...]
+    supported_languages = Column(JSON, default=["tr", "en"])
     goal = Column(SQLEnum(ChatbotGoal), default=ChatbotGoal.BOTH)
     
     # Şirket bilgileri
-    company_info = Column(JSON, nullable=True)  # {"name": "...", "products": "...", "website": "..."}
+    company_info = Column(JSON, nullable=True)
     
     # Embed code
     embed_code = Column(String(500), nullable=True)
@@ -47,13 +49,13 @@ class ChatbotConversation(Base):
     """Chatbot konuşmaları"""
     __tablename__ = "chatbot_conversations"
 
-    id = Column(Integer, primary_key=True, index=True)
-    config_id = Column(Integer, ForeignKey("chatbot_configs.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    config_id = Column(UUID(as_uuid=True), ForeignKey("chatbot_configs.id"), nullable=False)
     session_id = Column(String(100), unique=True, index=True, nullable=False)
     
     # Konuşma verileri
-    messages = Column(JSON, default=[])  # [{"role": "user", "content": "...", "timestamp": "..."}, ...]
-    collected_data = Column(JSON, default={})  # {"email": "...", "phone": "...", "name": "...", "inquiry": "..."}
+    messages = Column(JSON, default=[])
+    collected_data = Column(JSON, default={})
     
     # Dil
     detected_language = Column(String(10), default="tr")
@@ -75,19 +77,19 @@ class ChatbotLead(Base):
     """Chatbot'tan toplanan lead'ler"""
     __tablename__ = "chatbot_leads"
 
-    id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("chatbot_conversations.id"), nullable=False, unique=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("chatbot_conversations.id"), nullable=False, unique=True)
     
     # Lead bilgileri
     name = Column(String(200), nullable=True)
     email = Column(String(255), nullable=True, index=True)
     phone = Column(String(50), nullable=True)
     company_name = Column(String(200), nullable=True)
-    inquiry = Column(Text, nullable=True)  # Ne arıyor?
+    inquiry = Column(Text, nullable=True)
     
     # Metadata
     language = Column(String(10), default="tr")
-    source_url = Column(String(500), nullable=True)  # Hangi sayfadan geldi
+    source_url = Column(String(500), nullable=True)
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
