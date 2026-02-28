@@ -6,6 +6,7 @@ from app.models.visitor import VisitorIdentification
 from app.models.campaign import EmailCampaign, CampaignEmail, CampaignStatus
 from app.models.fair import FairExhibitor
 from app.models.api_setting import ApiSetting
+from app.models.activity import UserActivity
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "CampaignStatus",
     "FairExhibitor",
     "ApiSetting",
+    "UserActivity",
 ]

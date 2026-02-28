@@ -8,6 +8,7 @@ from app.core.deps import get_db, get_current_active_user
 from app.models.user import User
 from app.services.b2b_scraper import B2BScraperService, AlibabaScraper, TradeAtlasScraper, ImportGeniusScraper
 from app.services.excel_export import ExcelExportService
+from app.services.activity_logger import log_activity_safe, Module
 
 router = APIRouter()
 
@@ -46,12 +47,29 @@ async def search_all_platforms(
         
         total_results = sum(len(v) for v in results.values())
         
+        log_activity_safe(
+            db, current_user.id,
+            module=Module.B2B,
+            action=f"B2B platform araması: {request.query[:80]}",
+            credits_used=1,
+            status="success",
+            meta_data={"query": request.query, "platforms": request.platforms, "total_results": total_results}
+        )
+        
         return {
             "query": request.query,
             "total_results": total_results,
             "results": results
         }
     except Exception as e:
+        log_activity_safe(
+            db, current_user.id,
+            module=Module.B2B,
+            action=f"B2B platform araması (hata): {request.query[:80]}",
+            credits_used=0,
+            status="error",
+            meta_data={"query": request.query, "error": str(e)[:200]}
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -76,6 +94,15 @@ async def search_alibaba(
         results = await AlibabaScraper.search_products(
             search_query=request.query,
             max_results=request.max_results
+        )
+        
+        log_activity_safe(
+            db, current_user.id,
+            module=Module.B2B,
+            action=f"Alibaba araması: {request.query[:80]}",
+            credits_used=1,
+            status="success",
+            meta_data={"query": request.query, "platform": "alibaba", "results_count": len(results)}
         )
         
         return {

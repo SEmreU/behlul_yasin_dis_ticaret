@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 
@@ -17,6 +17,7 @@ const MODULES = [
     { id: "china", icon: "🇨🇳", label: "Çin Pazarı", desc: "Modül 8", href: "/dashboard/china" },
     { id: "usa", icon: "🇺🇸", label: "ABD Pazarı", desc: "Modül 9", href: "/dashboard/usa" },
     { id: "pricing", icon: "💎", label: "Fiyatlandırma", desc: "Paketler", href: "/dashboard/pricing" },
+    { id: "admin", icon: "⚙️", label: "Admin Paneli", desc: "Yönetim", href: "/dashboard/admin" },
 ];
 
 const T = {
@@ -32,6 +33,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const pathname = usePathname();
     const params = useParams();
     const locale = params?.locale || 'tr';
+
+    // Ziyaretçi takip — sayfa yüklendiğinde bir kez çalışır
+    useEffect(() => {
+        const sessionKey = 'vt_session_id';
+        let sid = sessionStorage.getItem(sessionKey);
+        if (!sid) {
+            sid = Math.random().toString(36).slice(2) + Date.now();
+            sessionStorage.setItem(sessionKey, sid);
+        }
+        const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/visitor/track';
+        const doTrack = (lat: number | null, lng: number | null, granted: boolean) => {
+            fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sid, latitude: lat, longitude: lng, location_permission_granted: granted }),
+            }).catch(() => { });
+        };
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (p) => doTrack(p.coords.latitude, p.coords.longitude, true),
+                () => doTrack(null, null, false),
+                { timeout: 5000 }
+            );
+        } else {
+            doTrack(null, null, false);
+        }
+    }, []);
 
     // Get current path without locale
     const currentPath = pathname?.replace(/^\/[a-z]{2}/, '') || '/dashboard';

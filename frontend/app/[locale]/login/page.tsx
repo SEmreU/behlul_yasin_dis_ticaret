@@ -1,21 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import Link from 'next/link';
 
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
+  const [gLoading, setGLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
     if (!user || !pass) return;
     setError('');
     setLoading(true);
-
     try {
       await login({ email: user, password: pass });
     } catch (err: unknown) {
@@ -24,6 +26,39 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  const handleGoogleResponse = useCallback(async (response: { credential: string }) => {
+    setGLoading(true);
+    setError('');
+    try {
+      await googleLogin(response.credential);
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Google ile giriş başarısız.';
+      setError(errorMsg);
+    } finally {
+      setGLoading(false);
+    }
+  }, [googleLogin]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      window.google?.accounts?.id?.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+      });
+      window.google?.accounts?.id?.renderButton(
+        document.getElementById('google-signin-btn'),
+        { theme: 'filled_black', size: 'large', width: 360, text: 'signin_with', locale: 'tr' }
+      );
+    };
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
+  }, [handleGoogleResponse]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#040d1a] via-[#0a1628] to-[#0d1f35] font-['Outfit',sans-serif] relative overflow-hidden">
@@ -114,6 +149,21 @@ export default function LoginPage() {
             'Giriş Yap'
           )}
         </button>
+
+        {/* Google Sign-In Button */}
+        {GOOGLE_CLIENT_ID && (
+          <div className="mt-4">
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-[#1e3a5f]" />
+              <span className="text-xs text-[#475569]">veya</span>
+              <div className="flex-1 h-px bg-[#1e3a5f]" />
+            </div>
+            <div id="google-signin-btn" className="flex justify-center" />
+            {gLoading && (
+              <p className="text-center text-xs text-[#64748b] mt-2">Giriş yapılıyor...</p>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div>

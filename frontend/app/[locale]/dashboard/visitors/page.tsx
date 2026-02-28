@@ -103,6 +103,15 @@ export default function VisitorsPage() {
                     &quot;Hayır&quot; derse IP adresi üzerinden ülke ve firma tespiti yapılır. Tüm veriler otomatik bildirim olarak iletilir.
                 </div>
 
+                {/* Entegrasyon Durumu */}
+                <div className="bg-[#00e5a008] border border-[#00e5a044] rounded-xl p-4 mb-6 flex items-center gap-3">
+                    <span className="text-2xl">✅</span>
+                    <div>
+                        <p className="text-sm font-semibold text-[#00e5a0]">Ziyaretçi takip sistemi aktif ve entegre</p>
+                        <p className="text-xs text-[#64748b] mt-1">Dashboard&apos;a giren her kullanıcı otomatik olarak kaydedilmektedir. Aşağıdaki tabloda gerçek zamanlı veriler görüntülenmektedir.</p>
+                    </div>
+                </div>
+
                 {/* Table Container */}
                 <div className="bg-gradient-to-br from-[#0d1f35] to-[#0a1628] border border-[#1e3a5f44] rounded-2xl overflow-hidden">
                     {loading ? (

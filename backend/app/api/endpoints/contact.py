@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.core.deps import get_db, get_current_active_user
 from app.models.user import User
 from app.services.contact_finder import ContactFinderService, search_companies_by_keyword
+from app.services.activity_logger import log_activity_safe, Module
 
 router = APIRouter()
 
@@ -47,6 +48,15 @@ async def find_contacts(
     total_emails = sum(len(r.get("emails", [])) for r in results)
     total_phones = sum(len(r.get("phones", [])) for r in results)
 
+    log_activity_safe(
+        db, current_user.id,
+        module=Module.CONTACT,
+        action=f"{len(request.websites)} web sitesinden iletişim bilgisi arandı",
+        credits_used=len(request.websites),
+        status="success",
+        meta_data={"websites_count": len(request.websites), "emails_found": total_emails, "phones_found": total_phones}
+    )
+
     return {
         "results": results,
         "total_websites_scanned": len(results),
@@ -79,6 +89,7 @@ async def verify_email_address(
 @router.post("/search-companies")
 async def search_companies(
     request: BulkSearchRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -86,7 +97,7 @@ async def search_companies(
     
     - ScraperAPI key gerekli (Dashboard → Ayarlar → Scraping)
     - Keyword + ülke ile şirket web siteleri bulunur
-    - Opsiyonel: her şirketin iletişim bilgisi de taranır
+    - Opsiyonel: her şirketi iletişim bilgisi de taranir
     """
     companies = await search_companies_by_keyword(request.keyword, request.country)
 
@@ -97,6 +108,15 @@ async def search_companies(
         for i, company in enumerate(companies):
             if i < len(contact_results):
                 company["contacts"] = contact_results[i]
+
+    log_activity_safe(
+        db, current_user.id,
+        module=Module.CONTACT,
+        action=f"Şirket araması: {request.keyword[:80]}",
+        credits_used=2,
+        status="success",
+        meta_data={"keyword": request.keyword, "country": request.country, "companies_found": len(companies), "find_contacts": request.find_contacts}
+    )
 
     return {
         "keyword": request.keyword,

@@ -14,7 +14,7 @@ def init_db():
     from app.models import (  # noqa: F401
         User, Company, Product, SearchQuery,
         VisitorIdentification, EmailCampaign, CampaignEmail,
-        FairExhibitor, ApiSetting
+        FairExhibitor, ApiSetting, UserActivity
     )
     from app.models.chatbot import ChatbotConfig, ChatbotConversation, ChatbotLead  # noqa: F401
     Base.metadata.create_all(bind=engine)

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.core.deps import get_db, get_current_active_user
 from app.models.user import User
 from app.services.excel_export import ExcelExportService
+from app.services.activity_logger import log_activity_safe, Module
 
 router = APIRouter()
 
@@ -65,6 +66,15 @@ async def search_maps(
     except Exception as e:
         results = []
         note = f"Arama hatası: {e}"
+
+    log_activity_safe(
+        db, current_user.id,
+        module=Module.MAPS,
+        action=f"Harita araması: {query[:80]}",
+        credits_used=3,
+        status="success" if results else "error",
+        meta_data={"query": query, "country": country, "city": city, "results_count": len(results)}
+    )
 
     return MapsSearchResponse(
         success=True,

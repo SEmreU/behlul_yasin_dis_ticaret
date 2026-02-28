@@ -1,28 +1,29 @@
 """
 Google Maps / Harita Firma Arama Servisi
 Google Maps Places API (key varsa) veya ScraperAPI tabanlı Google arama (key yoksa) kullanır.
+
+Değişiklikler:
+  - get_scraperapi_key / get_google_maps_key → base_scraper'dan import
+  - _fetch → retry_fetch (3 deneme, backoff, rate-limit)
+  - URL string birleştirme → normalize_url()
+  - clean_string ile metinler temizleniyor
 """
 
-import httpx
 import os
+import httpx
 from typing import List, Dict, Optional
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
+import re
 
-
-def get_scraperapi_key() -> str:
-    try:
-        from app.core.database import SessionLocal
-        from app.models.api_setting import ApiSetting
-        import base64
-        db = SessionLocal()
-        s = db.query(ApiSetting).filter(ApiSetting.key_name == "SCRAPERAPI_KEY").first()
-        db.close()
-        if s and s.key_value:
-            return base64.b64decode(s.key_value.encode()).decode()
-    except Exception:
-        pass
-    return os.getenv("SCRAPERAPI_KEY", "")
+from app.services.base_scraper import (
+    get_scraperapi_key,
+    normalize_url,
+    clean_string,
+    retry_fetch,
+    log_scrape_error,
+    COMMON_HEADERS,
+)
 
 
 def get_google_maps_key() -> str:
@@ -40,11 +41,9 @@ def get_google_maps_key() -> str:
     return os.getenv("GOOGLE_MAPS_API_KEY", "")
 
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+async def _fetch(url: str, scraperapi_key: str = "", render: bool = False) -> Optional[str]:
+    """Geriye dönük uyumluluk: retry_fetch kullanır."""
+    return await retry_fetch(url, api_key=scraperapi_key, render=render, module="maps_scraper")
 
 COUNTRY_CODES = {
     "Germany": "de", "France": "fr", "Italy": "it", "United Kingdom": "gb",
@@ -52,23 +51,6 @@ COUNTRY_CODES = {
     "China": "cn", "Japan": "jp", "South Korea": "kr", "India": "in",
     "Brazil": "br", "Russia": "ru", "Poland": "pl", "Netherlands": "nl",
 }
-
-
-async def _fetch(url: str, scraperapi_key: str = "", render: bool = False) -> Optional[str]:
-    try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            if scraperapi_key:
-                target = f"http://api.scraperapi.com/?api_key={scraperapi_key}&url={quote_plus(url)}"
-                if render:
-                    target += "&render=true"
-                r = await client.get(target, headers=HEADERS)
-            else:
-                r = await client.get(url, headers=HEADERS)
-            if r.status_code == 200:
-                return r.text
-    except Exception as e:
-        print(f"[MapsScraper] fetch error: {e}")
-    return None
 
 
 class GoogleMapsService:

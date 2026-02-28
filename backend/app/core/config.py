@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     
     # Other APIs
     GOOGLE_MAPS_API_KEY: Optional[str] = None
+    GOOGLE_CLIENT_ID: Optional[str] = None
     SENDGRID_API_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
 

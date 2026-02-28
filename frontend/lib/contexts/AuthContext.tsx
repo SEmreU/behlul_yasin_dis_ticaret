@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService, User, LoginData, RegisterData } from '../auth';
+import { api } from '../api';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -9,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  googleLogin: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -50,10 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (data: RegisterData) => {
-    // const user = await authService.register(data);
     await authService.register(data);
-    // Auto-login after registration
     await login({ email: data.email, password: data.password });
+  };
+
+  const googleLogin = async (credential: string) => {
+    const response = await api.post<{ access_token: string }>('/auth/google', { credential });
+    authService.setToken(response.data.access_token);
+    await loadUser();
+    router.push('/tr/dashboard');
   };
 
   const logout = async () => {
@@ -69,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         login,
         register,
+        googleLogin,
         logout,
         isAuthenticated: !!user,
       }}

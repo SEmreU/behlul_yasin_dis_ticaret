@@ -2,30 +2,35 @@
 Contact Finder Service
 Web sitelerinden email, telefon, sosyal medya bilgisi çeker.
 ScraperAPI + BeautifulSoup ile cloud-compatible.
+
+Değişiklikler:
+  - get_api_key → get_scraperapi_key (base_scraper)
+  - fetch_url → retry_fetch (3 deneme, backoff)
+  - normalize_url ile URL birleştirme
+  - clean_string ile temizleme
 """
-import httpx
 import re
 import asyncio
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 from urllib.parse import urljoin, urlparse, quote_plus
 
+from app.services.base_scraper import (
+    get_scraperapi_key,
+    normalize_url,
+    clean_string,
+    retry_fetch,
+    log_scrape_error,
+)
 
-def get_api_key():
-    """DB veya env'den ScraperAPI key al"""
-    try:
-        from app.core.database import SessionLocal
-        from app.models.api_setting import ApiSetting
-        import base64
-        db = SessionLocal()
-        setting = db.query(ApiSetting).filter(ApiSetting.key_name == "SCRAPERAPI_KEY").first()
-        db.close()
-        if setting and setting.key_value:
-            return base64.b64decode(setting.key_value.encode()).decode()
-    except Exception:
-        pass
-    import os
-    return os.getenv("SCRAPERAPI_KEY", "")
+# Alias geriye dönük uyumluluk için
+get_api_key = get_scraperapi_key
+
+
+async def fetch_url(url: str, api_key: str = "") -> Optional[str]:
+    """Geriye dönük uyumluluk: retry_fetch kullanır."""
+    return await retry_fetch(url, api_key=api_key, module="contact_finder")
+
 
 
 EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}')
@@ -42,27 +47,8 @@ EXCLUDE_EMAILS = {
     "yoursite.com", "yourdomain.com", "sentry.io", "w3.org"
 }
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-}
 
 
-async def fetch_url(url: str, api_key: str = "") -> Optional[str]:
-    """URL'den HTML içerik çek"""
-    try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-            if api_key:
-                proxy_url = f"http://api.scraperapi.com/?api_key={api_key}&url={quote_plus(url)}"
-                resp = await client.get(proxy_url, headers=HEADERS)
-            else:
-                resp = await client.get(url, headers=HEADERS)
-            
-            if resp.status_code == 200:
-                return resp.text
-    except Exception as e:
-        print(f"[ContactFinder] Fetch error for {url}: {e}")
-    return None
 
 
 def extract_contacts_from_html(html: str, base_url: str) -> Dict:

@@ -5,8 +5,9 @@ from pydantic import BaseModel
 
 from app.core.deps import get_db, get_current_active_user
 from app.models.user import User
-from app.services.product_search import ProductSearchService
+from app.services.product_search import ProductSearchService, CustomerSearchService, SearchParams
 from app.services.image_search import ImageSearchService
+from app.services.activity_logger import log_activity_safe, Module
 import os
 import uuid
 
@@ -19,6 +20,21 @@ class ProductSearchRequest(BaseModel):
     language: str = "tr"
     search_type: str = "text"  # text, gtip, oem
     max_results: int = 50
+    country: str = ""  # Hedef ülke filtresi
+
+
+class CustomerSearchRequest(BaseModel):
+    """Potansiyel müşteri arama isteği — tüm form alanları"""
+    product_name: str
+    gtip_code: str = ""
+    oem_no: str = ""
+    target_country: str = ""
+    search_language: str = "en"
+    related_sectors: str = ""
+    competitor_brands: str = ""
+    search_engines: List[str] = []   # ["Google", "Bing", ...]
+    db_sources: List[str] = []       # ["TradeAtlas", "Panjiva", ...]
+    max_results: int = 50
 
 
 class TranslateRequest(BaseModel):
@@ -28,6 +44,73 @@ class TranslateRequest(BaseModel):
     target_lang: str
 
 
+@router.post("/customers")
+async def search_customers(
+    request: CustomerSearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Potansiyel müşteri arama — seçili arama motorları + ticaret DB'lerini paralel çalıştırır.
+
+    Dönen yapı:
+    {
+      "results": [...],          // relevance_score sıralaması
+      "by_source": {...},        // kaynak bazında
+      "total": int,
+      "sources_searched": [...]
+    }
+    """
+    if not request.product_name.strip():
+        raise HTTPException(status_code=400, detail="Ürün adı boş olamaz")
+
+    params = SearchParams(
+        product_name=request.product_name,
+        gtip_code=request.gtip_code,
+        oem_no=request.oem_no,
+        target_country=request.target_country,
+        search_language=request.search_language,
+        related_sectors=request.related_sectors,
+        competitor_brands=request.competitor_brands,
+    )
+
+    # Kaynak seçimi boşsa varsayılan : tüm kaynaklar
+    engines = request.search_engines or ["Google", "Bing", "DuckDuckGo"]
+    dbs = request.db_sources or ["Europages", "TradeKey"]
+
+    per_source = max(5, request.max_results // max(len(engines) + len(dbs), 1) + 2)
+
+    data = await CustomerSearchService.search_all_sources(
+        params=params,
+        search_engines=engines,
+        db_sources=dbs,
+        max_per_source=per_source,
+    )
+
+    # Aktivite logla
+    log_activity_safe(
+        db, current_user.id,
+        module=Module.SEARCH,
+        action=f"Müşteri arama: {request.product_name[:60]}",
+        credits_used=len(engines) + len(dbs),
+        status="success",
+        meta_data={
+            "product": request.product_name,
+            "country": request.target_country,
+            "engines": engines,
+            "dbs": dbs,
+            "total": data["total"],
+        },
+    )
+
+    return {
+        "results": data["results"][:request.max_results],
+        "by_source": data["by_source"],
+        "total": data["total"],
+        "sources_searched": engines + dbs,
+    }
+
+
 @router.post("/product")
 async def search_product(
     request: ProductSearchRequest,
@@ -35,31 +118,33 @@ async def search_product(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Ürün ara (8 dil desteği)
-    
-    **Desteklenen Diller:**
-    - tr (Türkçe)
-    - en (English)
-    - de (Deutsch)
-    - ru (Русский)
-    - ar (العربية)
-    - fr (Français)
-    - es (Español)
-    - zh (中文)
-    
-    **Arama Tipleri:**
-    - text: Metin araması
-    - gtip: GTIP kodu ile
-    - oem: OEM kodu ile
+    Ürün ara (8 dil desteği) — geriye dönük uyumluluk endpoint'i
     """
     results = await ProductSearchService.search_products(
         db=db,
         query=request.query,
         language=request.language,
         search_type=request.search_type,
-        max_results=request.max_results
+        max_results=request.max_results,
+        country=request.country,
     )
-    
+
+    # Aktivite logla
+    log_activity_safe(
+        db, current_user.id,
+        module=Module.SEARCH,
+        action=f"Ürün arama: {request.query[:80]}",
+        credits_used=1,
+        status="success",
+        meta_data={
+            "query": request.query,
+            "language": request.language,
+            "search_type": request.search_type,
+            "country": request.country,
+            "results_count": len(results)
+        }
+    )
+
     return {
         "query": request.query,
         "language": request.language,

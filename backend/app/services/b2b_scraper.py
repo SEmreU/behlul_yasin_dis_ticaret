@@ -6,71 +6,40 @@ Key olmadan → doğrudan arama linkleri döner (fallback).
 Platformlar:
   Çin:   Alibaba, Made-in-China, DHgate, AliExpress, 1688, Global Sources, Yiwugo
   Dünya: TradeKey, EC21, IndiaMart, TradeIndia, ECPlaza, Kompass, Thomasnet
+
+Değişiklikler (base_scraper.py entegrasyonu):
+  - String birleştirme yerine normalize_url() / urljoin kullanıldı
+  - _fetch yerine BaseScraper.retry_request() (3 deneme, backoff, rate-limit)
+  - except: pass → log_error() ile loglanıyor
+  - get_text çıktısı clean_string() ile temizleniyor
 """
 
-import httpx
 import asyncio
-import re
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
-import os
-from urllib.parse import quote_plus, urljoin
+from urllib.parse import quote_plus
+
+from app.services.base_scraper import (
+    BaseScraper,
+    get_scraperapi_key,
+    normalize_url,
+    clean_string,
+    log_scrape_error,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# YARDIMCI FONKSİYONLAR
+# YARDIMCI FONKSİYONLAR (geriye dönük uyumluluk alias'ları)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_api_key() -> str:
-    """DB önce, sonra env'den ScraperAPI key al"""
-    try:
-        from app.core.database import SessionLocal
-        from app.models.api_setting import ApiSetting
-        import base64
-        db = SessionLocal()
-        s = db.query(ApiSetting).filter(ApiSetting.key_name == "SCRAPERAPI_KEY").first()
-        db.close()
-        if s and s.key_value:
-            return base64.b64decode(s.key_value.encode()).decode()
-    except Exception:
-        pass
-    return os.getenv("SCRAPERAPI_KEY", "")
-
-
-def _scraperapi_url(url: str, api_key: str, render: bool = False, country: str = "") -> str:
-    """ScraperAPI proxy URL oluştur"""
-    base = f"http://api.scraperapi.com/?api_key={api_key}&url={quote_plus(url)}"
-    if render:
-        base += "&render=true"
-    if country:
-        base += f"&country_code={country}"
-    return base
-
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+# get_api_key → get_scraperapi_key (base_scraper'dan import edildi)
+get_api_key = get_scraperapi_key
 
 
 async def _fetch(url: str, api_key: str = "", render: bool = False, country: str = "") -> Optional[str]:
-    """URL'den HTML çek. api_key varsa ScraperAPI üzerinden."""
-    try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            target = _scraperapi_url(url, api_key, render, country) if api_key else url
-            r = await client.get(target, headers=HEADERS)
-            if r.status_code == 200:
-                return r.text
-            print(f"[fetch] {url} → HTTP {r.status_code}")
-    except Exception as e:
-        print(f"[fetch] {url}: {e}")
-    return None
-
-
-def _link(query: str, base: str) -> str:
-    return base + quote_plus(query)
+    """Geriye dönük uyumluluk: retry_fetch'i kullanır."""
+    from app.services.base_scraper import retry_fetch
+    return await retry_fetch(url, api_key=api_key, render=render, country=country, module="b2b_scraper")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

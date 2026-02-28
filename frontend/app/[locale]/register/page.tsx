@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import Link from 'next/link';
 
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [passConfirm, setPassConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [gLoading, setGLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
@@ -33,6 +36,39 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  const handleGoogleResponse = useCallback(async (response: { credential: string }) => {
+    setGLoading(true);
+    setError('');
+    try {
+      await googleLogin(response.credential);
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Google ile kayıt başarısız.';
+      setError(errorMsg);
+    } finally {
+      setGLoading(false);
+    }
+  }, [googleLogin]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      window.google?.accounts?.id?.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+      });
+      window.google?.accounts?.id?.renderButton(
+        document.getElementById('google-register-btn'),
+        { theme: 'filled_black', size: 'large', width: 380, text: 'signup_with', locale: 'tr' }
+      );
+    };
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
+  }, [handleGoogleResponse]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#040d1a] via-[#0a1628] to-[#0d1f35] font-['Outfit',sans-serif] relative overflow-hidden">
@@ -154,12 +190,20 @@ export default function RegisterPage() {
           )}
         </button>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-[#1e3a5f]" />
-          <span className="text-xs text-[#475569]">veya</span>
-          <div className="flex-1 h-px bg-[#1e3a5f]" />
-        </div>
+        {/* Google Sign-In Button */}
+        {GOOGLE_CLIENT_ID && (
+          <div className="my-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-[#1e3a5f]" />
+              <span className="text-xs text-[#475569]">veya</span>
+              <div className="flex-1 h-px bg-[#1e3a5f]" />
+            </div>
+            <div id="google-register-btn" className="flex justify-center" />
+            {gLoading && (
+              <p className="text-center text-xs text-[#64748b] mt-2">Kayıt yapılıyor...</p>
+            )}
+          </div>
+        )}
 
         {/* Login Link */}
         <p className="text-center text-[13px] text-[#64748b]">

@@ -81,19 +81,16 @@ def get_all_settings(
     current_user: User = Depends(get_current_active_user),
     category: Optional[str] = None
 ):
-    """
-    Tüm sistem ayarlarını listele (hassas değerler maskeli gösterilir)
-    
-    Query params:
-    - category: ai, maps, email, scraper, system
-    """
+    """Tüm sistem ayarlarını listele (sadece superuser)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+
     query = db.query(ApiSetting)
     if category:
         query = query.filter(ApiSetting.category == category)
     
     settings = query.order_by(ApiSetting.category, ApiSetting.key_name).all()
     
-    # Hiç ayar yoksa varsayılanları oluştur
     if not settings:
         _initialize_default_settings(db)
         settings = db.query(ApiSetting).all()
@@ -120,13 +117,20 @@ def update_setting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Bir ayarı güncelle"""
+    """Bir ayarı güncelle (sadece superuser)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+    
+    # Sadece izin verilen key isimlerine güncelleme yapılabilir
+    allowed_keys = {s["key_name"] for s in DEFAULT_SETTINGS}
+    if key_name not in allowed_keys:
+        raise HTTPException(status_code=400, detail="Geçersiz ayar anahtarı")
+    
     setting = db.query(ApiSetting).filter(ApiSetting.key_name == key_name).first()
     
     if not setting:
         raise HTTPException(status_code=404, detail=f"Ayar bulunamadı: {key_name}")
     
-    # Encode edip kaydet
     setting.key_value = _encode_value(data.key_value) if data.key_value else None
     db.commit()
     
@@ -156,7 +160,9 @@ async def test_api_connection(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """API bağlantısını test et"""
+    """API bağlantısını test et (sadece superuser)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
     setting = db.query(ApiSetting).filter(ApiSetting.key_name == key_name).first()
     
     if not setting or not setting.key_value:
@@ -201,7 +207,9 @@ async def system_health(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Tüm servislerin sağlık durumu"""
+    """Tüm servislerin sağlık durumu (sadece superuser)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
     import redis as redis_lib
     from app.core.config import settings as cfg
     
@@ -284,3 +292,341 @@ def get_setting_from_db(db: Session, key_name: str, fallback=None) -> Optional[s
         return _decode_value(setting.key_value)
     
     return fallback
+
+
+# ─────────────────────────────────────────────────────────────
+# KULLANICI YÖNETİMİ
+# ─────────────────────────────────────────────────────────────
+
+class UserUpdateRequest(BaseModel):
+    query_credits: Optional[int] = None
+    subscription_tier: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_superuser: Optional[bool] = None
+
+
+@router.get("/users")
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+):
+    """Tüm kullanıcıları listele (superuser gerekli)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+    
+    q = db.query(User)
+    if search:
+        q = q.filter(User.email.ilike(f"%{search}%") | User.full_name.ilike(f"%{search}%"))
+    
+    users = q.order_by(User.id.desc()).offset(skip).limit(limit).all()
+    total = db.query(User).count()
+    
+    return {
+        "total": total,
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "full_name": u.full_name,
+                "is_active": u.is_active,
+                "is_superuser": u.is_superuser,
+                "subscription_tier": u.subscription_tier,
+                "query_credits": u.query_credits,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "google_id": u.google_id,
+            }
+            for u in users
+        ]
+    }
+
+
+@router.patch("/users/{user_id}")
+def update_user(
+    user_id: int,
+    data: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Kullanıcı bilgilerini güncelle (superuser gerekli)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    
+    if data.query_credits is not None:
+        user.query_credits = data.query_credits
+    if data.subscription_tier is not None:
+        user.subscription_tier = data.subscription_tier
+    if data.is_active is not None:
+        user.is_active = data.is_active
+    if data.is_superuser is not None:
+        user.is_superuser = data.is_superuser
+    
+    db.commit()
+    return {"status": "updated", "user_id": user_id}
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Kullanıcıyı sil (superuser gerekli)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Kendinizi silemezsiniz")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    
+    db.delete(user)
+    db.commit()
+    return {"status": "deleted", "user_id": user_id}
+
+
+# ─────────────────────────────────────────────────────────────
+# İSTATİSTİKLER
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/stats")
+def get_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Sistem istatistikleri (superuser gerekli)"""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+    
+    from app.models.visitor import VisitorIdentification
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+    
+    now = datetime.utcnow()
+    today = now - timedelta(days=1)
+    this_week = now - timedelta(days=7)
+    this_month = now - timedelta(days=30)
+    
+    total_users = db.query(User).count()
+    active_users = db.query(User).filter(User.is_active == True).count()
+    new_today = db.query(User).filter(User.created_at >= today).count()
+    
+    total_visitors = db.query(VisitorIdentification).count()
+    visitors_today = db.query(VisitorIdentification).filter(
+        VisitorIdentification.created_at >= today
+    ).count()
+    visitors_week = db.query(VisitorIdentification).filter(
+        VisitorIdentification.created_at >= this_week
+    ).count()
+    
+    # Abonelik dağılımı
+    tiers = db.query(
+        User.subscription_tier, func.count(User.id)
+    ).group_by(User.subscription_tier).all()
+    tier_dist = {t: c for t, c in tiers}
+
+    return {
+        "users": {
+            "total": total_users,
+            "active": active_users,
+            "new_today": new_today,
+        },
+        "visitors": {
+            "total": total_visitors,
+            "today": visitors_today,
+            "this_week": visitors_week,
+        },
+        "subscription_distribution": tier_dist,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# KULLANICI AKTİVİTE / KULLANIM TAKİBİ
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/users/{user_id}/activity")
+def get_user_activity(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 100,
+    module: Optional[str] = None,
+):
+    """
+    Belirli bir kullanıcının aktivite geçmişi (superuser gerekli).
+    Hangi modülü ne zaman, kaç kez ve başarıyla mı kullandığını gösterir.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+
+    from app.models.activity import UserActivity
+    from sqlalchemy import func
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+
+    q = db.query(UserActivity).filter(UserActivity.user_id == user_id)
+    if module:
+        q = q.filter(UserActivity.module == module)
+
+    activities = q.order_by(UserActivity.created_at.desc()).limit(limit).all()
+
+    # Modül bazlı özet
+    summary = db.query(
+        UserActivity.module,
+        func.count(UserActivity.id).label("count"),
+        func.sum(UserActivity.credits_used).label("total_credits"),
+        func.max(UserActivity.created_at).label("last_used"),
+    ).filter(
+        UserActivity.user_id == user_id,
+        UserActivity.status == "success"
+    ).group_by(UserActivity.module).all()
+
+    # SearchQuery tablosundan da istatistik çek (eski data)
+    from app.models.search_query import SearchQuery
+    search_summary = db.query(
+        SearchQuery.query_type,
+        func.count(SearchQuery.id).label("count"),
+        func.sum(SearchQuery.credits_used).label("total_credits"),
+    ).filter(SearchQuery.user_id == user_id).group_by(SearchQuery.query_type).all()
+
+    return {
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "subscription_tier": user.subscription_tier,
+            "query_credits": user.query_credits,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        },
+        "module_summary": [
+            {
+                "module": s.module,
+                "count": s.count,
+                "total_credits": s.total_credits or 0,
+                "last_used": s.last_used.isoformat() if s.last_used else None,
+            } for s in summary
+        ],
+        "search_history": [
+            {
+                "query_type": s.query_type,
+                "count": s.count,
+                "total_credits": s.total_credits or 0,
+            } for s in search_summary
+        ],
+        "recent_activities": [
+            {
+                "id": a.id,
+                "module": a.module,
+                "action": a.action,
+                "credits_used": a.credits_used,
+                "status": a.status,
+                "meta_data": a.meta_data,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            } for a in activities
+        ],
+        "total_activities": q.count(),
+    }
+
+
+@router.get("/activity/feed")
+def get_activity_feed(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 50,
+    module: Optional[str] = None,
+):
+    """
+    Tüm kullanıcıların son aktivitelerini göster (global feed).
+    Kim, ne zaman, hangi modülü kullandı?
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+
+    from app.models.activity import UserActivity
+
+    q = db.query(UserActivity, User).join(User, UserActivity.user_id == User.id)
+    if module:
+        q = q.filter(UserActivity.module == module)
+
+    results = q.order_by(UserActivity.created_at.desc()).limit(limit).all()
+
+    return {
+        "feed": [
+            {
+                "activity_id": a.id,
+                "module": a.module,
+                "action": a.action,
+                "credits_used": a.credits_used,
+                "status": a.status,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+                "user": {
+                    "id": u.id,
+                    "email": u.email,
+                    "full_name": u.full_name,
+                }
+            } for a, u in results
+        ]
+    }
+
+
+@router.get("/stats/modules")
+def get_module_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Modül bazlı kullanım istatistikleri (hangi modül toplam kaç kez kullanıldı).
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin yetkisi gerekli")
+
+    from app.models.activity import UserActivity
+    from sqlalchemy import func
+
+    module_stats = db.query(
+        UserActivity.module,
+        func.count(UserActivity.id).label("total_uses"),
+        func.count(func.distinct(UserActivity.user_id)).label("unique_users"),
+        func.sum(UserActivity.credits_used).label("total_credits"),
+    ).filter(
+        UserActivity.status == "success"
+    ).group_by(UserActivity.module).order_by(
+        func.count(UserActivity.id).desc()
+    ).all()
+
+    # SearchQuery'den de ekle
+    from app.models.search_query import SearchQuery
+    search_stats = db.query(
+        SearchQuery.query_type,
+        func.count(SearchQuery.id).label("total_uses"),
+        func.count(func.distinct(SearchQuery.user_id)).label("unique_users"),
+        func.sum(SearchQuery.credits_used).label("total_credits"),
+    ).group_by(SearchQuery.query_type).all()
+
+    return {
+        "module_stats": [
+            {
+                "module": s.module,
+                "total_uses": s.total_uses,
+                "unique_users": s.unique_users,
+                "total_credits": s.total_credits or 0,
+            } for s in module_stats
+        ],
+        "search_stats": [
+            {
+                "query_type": s.query_type,
+                "total_uses": s.total_uses,
+                "unique_users": s.unique_users,
+                "total_credits": s.total_credits or 0,
+            } for s in search_stats
+        ],
+    }
