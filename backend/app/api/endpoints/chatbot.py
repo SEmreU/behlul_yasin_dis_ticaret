@@ -145,8 +145,9 @@ Toplanan: {collected_data} | Kısa, doğal, max 2-3 cümle."""
         _db.close()
         if _s and _s.key_value:
             groq_key = _b64.b64decode(_s.key_value.encode()).decode()
-    except Exception:
-        pass
+    except Exception as db_err:
+        import logging
+        logging.getLogger("chatbot").warning("DB'den GROQ_API_KEY okunamadı: %s", str(db_err)[:100])
     if not groq_key:
         groq_key = getattr(settings, "GROQ_API_KEY", "") or ""
 
@@ -162,7 +163,8 @@ Toplanan: {collected_data} | Kısa, doğal, max 2-3 cümle."""
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"[Chatbot] Groq error: {e}")
+            import logging
+            logging.getLogger("chatbot").error("Groq API hatası: %s", str(e)[:200])
         
     
     # Hugging Face ile dene
@@ -351,10 +353,24 @@ async def chat_with_bot(
         }
     except Exception as e:
         import logging
-        logging.getLogger("chatbot").error("Chatbot chat error: %s", str(e)[:300])
-        db.rollback()
+        logger = logging.getLogger("chatbot")
+        error_msg = str(e)[:300]
+        logger.error("Chatbot chat error: %s", error_msg)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+        # Daha açıklayıcı hata mesajı
+        if "api_key" in error_msg.lower() or "groq" in error_msg.lower():
+            reply = "AI servisi şu anda yapılandırılmamış. Lütfen yönetici ile iletişime geçin."
+        elif "relation" in error_msg.lower() or "column" in error_msg.lower() or "table" in error_msg.lower():
+            reply = "Veritabanı yapılandırma hatası. Lütfen yönetici ile iletişime geçin."
+        else:
+            reply = f"Bir hata oluştu: {error_msg[:100]}. Lütfen daha sonra tekrar deneyin."
+
         return {
-            "reply": "Üzgünüm, şu anda bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar deneyin.",
+            "reply": reply,
             "collected_data": None,
             "conversation_completed": False
         }

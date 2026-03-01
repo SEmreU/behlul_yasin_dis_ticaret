@@ -48,7 +48,6 @@ class TranslateRequest(BaseModel):
 async def search_customers(
     request: CustomerSearchRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
     """
     Potansiyel müşteri arama — seçili arama motorları + ticaret DB'lerini paralel çalıştırır.
@@ -88,21 +87,24 @@ async def search_customers(
             max_per_source=per_source,
         )
 
-        # Aktivite logla
-        log_activity_safe(
-            db, current_user.id,
-            module=Module.SEARCH,
-            action=f"Müşteri arama: {request.product_name[:60]}",
-            credits_used=len(engines) + len(dbs),
-            status="success",
-            meta_data={
-                "product": request.product_name,
-                "country": request.target_country,
-                "engines": engines,
-                "dbs": dbs,
-                "total": data["total"],
-            },
-        )
+        # Aktivite logla (user yoksa skip)
+        try:
+            log_activity_safe(
+                db, None,
+                module=Module.SEARCH,
+                action=f"Müşteri arama: {request.product_name[:60]}",
+                credits_used=len(engines) + len(dbs),
+                status="success",
+                meta_data={
+                    "product": request.product_name,
+                    "country": request.target_country,
+                    "engines": engines,
+                    "dbs": dbs,
+                    "total": data["total"],
+                },
+            )
+        except Exception:
+            pass
 
         return {
             "results": data["results"][:request.max_results],
