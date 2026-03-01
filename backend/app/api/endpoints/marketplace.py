@@ -31,7 +31,6 @@ class MarketplaceSearchRequest(BaseModel):
 @router.post("/search-all")
 async def search_all_marketplaces(
     request: MarketplaceSearchRequest,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -80,7 +79,6 @@ async def search_all_marketplaces(
 @router.post("/search-rfqs")
 async def search_rfqs(
     request: MarketplaceSearchRequest,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -129,7 +127,6 @@ async def search_rfqs(
 async def export_marketplace_results(
     query: str = Query(..., description="Arama terimi"),
     platforms: Optional[str] = Query(None, description="Platform listesi (virgülle ayrılmış)"),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -164,7 +161,6 @@ async def export_marketplace_results(
 async def export_rfqs(
     query: str = Query(..., description="Arama terimi"),
     country: Optional[str] = Query(None, description="Ülke filtresi"),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -224,7 +220,6 @@ class ChinaSearchRequest(BaseModel):
 @router.post("/search-usa")
 async def search_usa_market(
     request: USASearchRequest,
-    current_user: User = Depends(get_current_user),
 ):
     """
     ABD Pazarı Özel Arama
@@ -369,7 +364,6 @@ async def search_usa_market(
 @router.post("/search-china")
 async def search_china_market(
     request: ChinaSearchRequest,
-    current_user: User = Depends(get_current_user),
 ):
     """
     Çin Pazarı Özel Arama
