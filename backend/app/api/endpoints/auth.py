@@ -152,3 +152,18 @@ def logout():
     JWT tokens are stateless, so logout is handled on client side by removing the token
     """
     return {"message": "Successfully logged out"}
+
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Mevcut geçerli token ile yeni token üret.
+    Frontend token expire olmadan önce bu endpoint'i çağırarak oturumu uzatır.
+    """
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": current_user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 gün
 
     # External APIs - AI Providers (Birini seç!)
     OPENAI_API_KEY: Optional[str] = None  # Ücretli ama en iyi

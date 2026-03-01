@@ -222,128 +222,142 @@ async def chat_with_bot(
     - Hugging Face (bedava)
     - Fallback: Pattern-based
     """
-    # Session'a göre conversation bul veya oluştur
-    conversation = db.query(ChatbotConversation).filter(
-        ChatbotConversation.session_id == message.session_id
-    ).first()
-    
-    if not conversation:
-        # İlk mesaj - yeni conversation oluştur
-        # Config bul (şimdilik ilk aktif config'i kullan)
-        config = db.query(ChatbotConfig).filter(
-            ChatbotConfig.is_active == True
+    try:
+        # Session'a göre conversation bul veya oluştur
+        conversation = db.query(ChatbotConversation).filter(
+            ChatbotConversation.session_id == message.session_id
         ).first()
         
-        if not config:
-            # Varsayılan config oluştur (ilk çalıştırmada)
-            import uuid as _uuid
-            config = ChatbotConfig(
-                user_id=1,  # ilk admin kullanıcı
-                bot_name="TradeBot",
-                welcome_message="Merhaba! Yasin Dış Ticaret'e hoşgeldiniz. Size nasıl yardımcı olabilirim?",
-                supported_languages=["tr", "en", "de"],
-                goal=ChatbotGoal.EMAIL,
-                company_info={"name": "Yasin Dış Ticaret"},
-                embed_code=f'<script src="https://yasin-trade-backend.onrender.com/chatbot/embed.js"></script>',
-                is_active=True,
+        if not conversation:
+            # İlk mesaj - yeni conversation oluştur
+            # Config bul (şimdilik ilk aktif config'i kullan)
+            config = db.query(ChatbotConfig).filter(
+                ChatbotConfig.is_active == True
+            ).first()
+            
+            if not config:
+                # Varsayılan config oluştur (ilk çalıştırmada)
+                import uuid as _uuid
+                config = ChatbotConfig(
+                    user_id=1,  # ilk admin kullanıcı
+                    bot_name="TradeBot",
+                    welcome_message="Merhaba! Yasin Dış Ticaret'e hoşgeldiniz. Size nasıl yardımcı olabilirim?",
+                    supported_languages=["tr", "en", "de"],
+                    goal=ChatbotGoal.EMAIL,
+                    company_info={"name": "Yasin Dış Ticaret"},
+                    embed_code=f'<script src="https://yasin-trade-backend.onrender.com/chatbot/embed.js"></script>',
+                    is_active=True,
+                )
+                db.add(config)
+                try:
+                    db.commit()
+                    db.refresh(config)
+                except Exception:
+                    db.rollback()
+                    # Başka bir session zaten oluşturduysa tekrar sorgula
+                    config = db.query(ChatbotConfig).filter(
+                        ChatbotConfig.is_active == True
+                    ).first()
+                    if not config:
+                        return {
+                            "reply": "Chatbot şu anda yapılandırılmamış. Lütfen yönetici ile iletişime geçin.",
+                            "collected_data": None,
+                            "conversation_completed": False
+                        }
+            
+            conversation = ChatbotConversation(
+                config_id=config.id,
+                session_id=message.session_id,
+                messages=[],
+                collected_data={},
+                detected_language=message.language or "tr"
             )
-            db.add(config)
-            try:
-                db.commit()
-                db.refresh(config)
-            except Exception:
-                db.rollback()
-                # Başka bir session zaten oluşturduysa tekrar sorgula
-                config = db.query(ChatbotConfig).filter(
-                    ChatbotConfig.is_active == True
-                ).first()
-                if not config:
-                    raise HTTPException(status_code=500, detail="Chatbot config oluşturulamadı")
+            db.add(conversation)
+            db.commit()
+            db.refresh(conversation)
         
-        conversation = ChatbotConversation(
-            config_id=config.id,
-            session_id=message.session_id,
-            messages=[],
-            collected_data={},
-            detected_language=message.language or "tr"
+        config = conversation.config
+        
+        # Email ve telefon çıkar
+        email = extract_email(message.message)
+        phone = extract_phone(message.message)
+        
+        if email:
+            conversation.collected_data = dict(conversation.collected_data or {})
+            conversation.collected_data['email'] = email
+            flag_modified(conversation, 'collected_data')
+        if phone:
+            conversation.collected_data = dict(conversation.collected_data or {})
+            conversation.collected_data['phone'] = phone
+            flag_modified(conversation, 'collected_data')
+        
+        # Mesajı kaydet
+        msgs = list(conversation.messages or [])
+        msgs.append({
+            "role": "user",
+            "content": message.message,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        conversation.messages = msgs
+        flag_modified(conversation, 'messages')
+        
+        # AI yanıt oluştur
+        ai_reply = await generate_ai_response(
+            message.message,
+            conversation.messages,
+            config,
+            conversation.collected_data or {}
         )
-        db.add(conversation)
+        
+        # AI yanıtını kaydet
+        msgs2 = list(conversation.messages or [])
+        msgs2.append({
+            "role": "assistant",
+            "content": ai_reply,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        conversation.messages = msgs2
+        flag_modified(conversation, 'messages')
+        
+        # Conversation tamamlandı mı kontrol et
+        is_completed = False
+        if config.goal == ChatbotGoal.EMAIL and conversation.collected_data.get('email'):
+            is_completed = True
+        elif config.goal == ChatbotGoal.PHONE and conversation.collected_data.get('phone'):
+            is_completed = True
+        elif config.goal == ChatbotGoal.BOTH and conversation.collected_data.get('email') and conversation.collected_data.get('phone'):
+            is_completed = True
+        
+        if is_completed and not conversation.is_completed:
+            conversation.is_completed = True
+            conversation.completed_at = datetime.utcnow()
+            
+            # Lead oluştur
+            lead = ChatbotLead(
+                conversation_id=conversation.id,
+                email=conversation.collected_data.get('email'),
+                phone=conversation.collected_data.get('phone'),
+                inquiry=message.message[:500],  # İlk mesaj
+                language=conversation.detected_language
+            )
+            db.add(lead)
+        
         db.commit()
-        db.refresh(conversation)
-    
-    config = conversation.config
-    
-    # Email ve telefon çıkar
-    email = extract_email(message.message)
-    phone = extract_phone(message.message)
-    
-    if email:
-        conversation.collected_data = dict(conversation.collected_data or {})
-        conversation.collected_data['email'] = email
-        flag_modified(conversation, 'collected_data')
-    if phone:
-        conversation.collected_data = dict(conversation.collected_data or {})
-        conversation.collected_data['phone'] = phone
-        flag_modified(conversation, 'collected_data')
-    
-    # Mesajı kaydet
-    msgs = list(conversation.messages or [])
-    msgs.append({
-        "role": "user",
-        "content": message.message,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    conversation.messages = msgs
-    flag_modified(conversation, 'messages')
-    
-    # AI yanıt oluştur
-    ai_reply = await generate_ai_response(
-        message.message,
-        conversation.messages,
-        config,
-        conversation.collected_data or {}
-    )
-    
-    # AI yanıtını kaydet
-    msgs2 = list(conversation.messages or [])
-    msgs2.append({
-        "role": "assistant",
-        "content": ai_reply,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    conversation.messages = msgs2
-    flag_modified(conversation, 'messages')
-    
-    # Conversation tamamlandı mı kontrol et
-    is_completed = False
-    if config.goal == ChatbotGoal.EMAIL and conversation.collected_data.get('email'):
-        is_completed = True
-    elif config.goal == ChatbotGoal.PHONE and conversation.collected_data.get('phone'):
-        is_completed = True
-    elif config.goal == ChatbotGoal.BOTH and conversation.collected_data.get('email') and conversation.collected_data.get('phone'):
-        is_completed = True
-    
-    if is_completed and not conversation.is_completed:
-        conversation.is_completed = True
-        conversation.completed_at = datetime.utcnow()
         
-        # Lead oluştur
-        lead = ChatbotLead(
-            conversation_id=conversation.id,
-            email=conversation.collected_data.get('email'),
-            phone=conversation.collected_data.get('phone'),
-            inquiry=message.message[:500],  # İlk mesaj
-            language=conversation.detected_language
-        )
-        db.add(lead)
-    
-    db.commit()
-    
-    return {
-        "reply": ai_reply,
-        "collected_data": conversation.collected_data if is_completed else None,
-        "conversation_completed": is_completed
-    }
+        return {
+            "reply": ai_reply,
+            "collected_data": conversation.collected_data if is_completed else None,
+            "conversation_completed": is_completed
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger("chatbot").error("Chatbot chat error: %s", str(e)[:300])
+        db.rollback()
+        return {
+            "reply": "Üzgünüm, şu anda bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar deneyin.",
+            "collected_data": None,
+            "conversation_completed": False
+        }
 
 
 @router.get("/leads")

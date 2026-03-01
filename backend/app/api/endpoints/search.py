@@ -64,51 +64,62 @@ async def search_customers(
     if not request.product_name.strip():
         raise HTTPException(status_code=400, detail="Ürün adı boş olamaz")
 
-    params = SearchParams(
-        product_name=request.product_name,
-        gtip_code=request.gtip_code,
-        oem_no=request.oem_no,
-        target_country=request.target_country,
-        search_language=request.search_language,
-        related_sectors=request.related_sectors,
-        competitor_brands=request.competitor_brands,
-    )
+    try:
+        params = SearchParams(
+            product_name=request.product_name,
+            gtip_code=request.gtip_code,
+            oem_no=request.oem_no,
+            target_country=request.target_country,
+            search_language=request.search_language,
+            related_sectors=request.related_sectors,
+            competitor_brands=request.competitor_brands,
+        )
 
-    # Kaynak seçimi boşsa varsayılan : tüm kaynaklar
-    engines = request.search_engines or ["Google", "Bing", "DuckDuckGo"]
-    dbs = request.db_sources or ["Europages", "TradeKey"]
+        # Kaynak seçimi boşsa varsayılan : tüm kaynaklar
+        engines = request.search_engines or ["Google", "Bing", "DuckDuckGo"]
+        dbs = request.db_sources or ["Europages", "TradeKey"]
 
-    per_source = max(5, request.max_results // max(len(engines) + len(dbs), 1) + 2)
+        per_source = max(5, request.max_results // max(len(engines) + len(dbs), 1) + 2)
 
-    data = await CustomerSearchService.search_all_sources(
-        params=params,
-        search_engines=engines,
-        db_sources=dbs,
-        max_per_source=per_source,
-    )
+        data = await CustomerSearchService.search_all_sources(
+            params=params,
+            search_engines=engines,
+            db_sources=dbs,
+            max_per_source=per_source,
+        )
 
-    # Aktivite logla
-    log_activity_safe(
-        db, current_user.id,
-        module=Module.SEARCH,
-        action=f"Müşteri arama: {request.product_name[:60]}",
-        credits_used=len(engines) + len(dbs),
-        status="success",
-        meta_data={
-            "product": request.product_name,
-            "country": request.target_country,
-            "engines": engines,
-            "dbs": dbs,
+        # Aktivite logla
+        log_activity_safe(
+            db, current_user.id,
+            module=Module.SEARCH,
+            action=f"Müşteri arama: {request.product_name[:60]}",
+            credits_used=len(engines) + len(dbs),
+            status="success",
+            meta_data={
+                "product": request.product_name,
+                "country": request.target_country,
+                "engines": engines,
+                "dbs": dbs,
+                "total": data["total"],
+            },
+        )
+
+        return {
+            "results": data["results"][:request.max_results],
+            "by_source": data["by_source"],
             "total": data["total"],
-        },
-    )
-
-    return {
-        "results": data["results"][:request.max_results],
-        "by_source": data["by_source"],
-        "total": data["total"],
-        "sources_searched": engines + dbs,
-    }
+            "sources_searched": engines + dbs,
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger("search").warning("Customer search error: %s", str(e)[:200])
+        return {
+            "results": [],
+            "by_source": {},
+            "total": 0,
+            "sources_searched": [],
+            "error": "Arama sırasında hata oluştu, lütfen tekrar deneyin."
+        }
 
 
 @router.post("/product")
@@ -120,37 +131,48 @@ async def search_product(
     """
     Ürün ara (8 dil desteği) — geriye dönük uyumluluk endpoint'i
     """
-    results = await ProductSearchService.search_products(
-        db=db,
-        query=request.query,
-        language=request.language,
-        search_type=request.search_type,
-        max_results=request.max_results,
-        country=request.country,
-    )
+    try:
+        results = await ProductSearchService.search_products(
+            db=db,
+            query=request.query,
+            language=request.language,
+            search_type=request.search_type,
+            max_results=request.max_results,
+            country=request.country,
+        )
 
-    # Aktivite logla
-    log_activity_safe(
-        db, current_user.id,
-        module=Module.SEARCH,
-        action=f"Ürün arama: {request.query[:80]}",
-        credits_used=1,
-        status="success",
-        meta_data={
+        # Aktivite logla
+        log_activity_safe(
+            db, current_user.id,
+            module=Module.SEARCH,
+            action=f"Ürün arama: {request.query[:80]}",
+            credits_used=1,
+            status="success",
+            meta_data={
+                "query": request.query,
+                "language": request.language,
+                "search_type": request.search_type,
+                "country": request.country,
+                "results_count": len(results)
+            }
+        )
+
+        return {
             "query": request.query,
             "language": request.language,
-            "search_type": request.search_type,
-            "country": request.country,
-            "results_count": len(results)
+            "results_count": len(results),
+            "results": results
         }
-    )
-
-    return {
-        "query": request.query,
-        "language": request.language,
-        "results_count": len(results),
-        "results": results
-    }
+    except Exception as e:
+        import logging
+        logging.getLogger("search").warning("Product search error: %s", str(e)[:200])
+        return {
+            "query": request.query,
+            "language": request.language,
+            "results_count": 0,
+            "results": [],
+            "error": "Arama sırasında hata oluştu, lütfen tekrar deneyin."
+        }
 
 
 @router.post("/image-search")

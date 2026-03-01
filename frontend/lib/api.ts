@@ -23,12 +23,42 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle 401 errors
+// Response interceptor to handle 401 errors — refresh önce dene
+let isRefreshing = false;
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear token and redirect to login
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Refresh endpoint kendisi 401 dönerse döngüye girme
+      if (originalRequest.url?.includes('/auth/refresh')) {
+        localStorage.removeItem('access_token');
+        window.location.href = '/tr/login';
+        return Promise.reject(error);
+      }
+
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const token = localStorage.getItem('access_token');
+          if (token) {
+            const res = await api.post('/auth/refresh');
+            const newToken = res.data.access_token;
+            localStorage.setItem('access_token', newToken);
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            isRefreshing = false;
+            return api(originalRequest);
+          }
+        } catch {
+          // Refresh başarısız — login'e yönlendir
+        }
+        isRefreshing = false;
+      }
+
       localStorage.removeItem('access_token');
       window.location.href = '/tr/login';
     }

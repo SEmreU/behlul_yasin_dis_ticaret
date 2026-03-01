@@ -62,6 +62,8 @@ async def search_all_platforms(
             "results": results
         }
     except Exception as e:
+        import logging
+        logging.getLogger("b2b").warning("B2B search error: %s", str(e)[:200])
         log_activity_safe(
             db, current_user.id,
             module=Module.B2B,
@@ -70,7 +72,12 @@ async def search_all_platforms(
             status="error",
             meta_data={"query": request.query, "error": str(e)[:200]}
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "query": request.query,
+            "total_results": 0,
+            "results": {},
+            "error": "Arama sırasında hata oluştu, lütfen tekrar deneyin."
+        }
 
 
 @router.post("/alibaba/search")
@@ -112,7 +119,14 @@ async def search_alibaba(
             "results": results
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("b2b").warning("Alibaba search error: %s", str(e)[:200])
+        return {
+            "query": request.query,
+            "platform": "alibaba",
+            "results_count": 0,
+            "results": []
+        }
 
 
 @router.post("/tradeatlas/search")
@@ -145,7 +159,14 @@ async def search_tradeatlas(
             "results": results
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("b2b").warning("TradeAtlas search error: %s", str(e)[:200])
+        return {
+            "company": company_name,
+            "platform": "tradeatlas",
+            "results_count": 0,
+            "results": []
+        }
 
 
 @router.post("/importgenius/search")
@@ -179,7 +200,14 @@ async def search_importgenius(
             "results": results
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("b2b").warning("ImportGenius search error: %s", str(e)[:200])
+        return {
+            "company": company_name,
+            "platform": "importgenius",
+            "results_count": 0,
+            "results": []
+        }
 
 
 @router.get("/platforms")
@@ -281,7 +309,14 @@ async def search_made_in_china(
             "results": results
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("b2b").warning("Made-in-China search error: %s", str(e)[:200])
+        return {
+            "query": request.query,
+            "platform": "made-in-china",
+            "results_count": 0,
+            "results": []
+        }
 
 
 @router.post("/dhgate/search")
@@ -313,4 +348,11 @@ async def search_dhgate(
             "results": results
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("b2b").warning("DHgate search error: %s", str(e)[:200])
+        return {
+            "query": request.query,
+            "platform": "dhgate",
+            "results_count": 0,
+            "results": []
+        }

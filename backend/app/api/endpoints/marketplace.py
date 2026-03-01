@@ -65,7 +65,16 @@ async def search_all_marketplaces(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("marketplace").warning("Marketplace search error: %s", str(e)[:200])
+        return {
+            "success": False,
+            "query": request.query,
+            "total_platforms": 0,
+            "total_results": 0,
+            "results": {},
+            "error": "Arama sırasında hata oluştu, lütfen tekrar deneyin."
+        }
 
 
 @router.post("/search-rfqs")
@@ -105,7 +114,15 @@ async def search_rfqs(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("marketplace").warning("RFQ search error: %s", str(e)[:200])
+        return {
+            "success": False,
+            "query": request.query,
+            "total_rfqs": 0,
+            "rfqs": [],
+            "error": "RFQ araması sırasında hata oluştu."
+        }
 
 
 @router.get("/export")
@@ -138,7 +155,9 @@ async def export_marketplace_results(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("marketplace").warning("Export error: %s", str(e)[:200])
+        return {"error": "Export sırasında hata oluştu.", "detail": str(e)[:200]}
 
 
 @router.get("/export-rfqs")
@@ -181,7 +200,9 @@ async def export_rfqs(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("marketplace").warning("RFQ export error: %s", str(e)[:200])
+        return {"error": "RFQ export sırasında hata oluştu.", "detail": str(e)[:200]}
 
 
 class USASearchRequest(BaseModel):
@@ -333,7 +354,16 @@ async def search_usa_market(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("marketplace").warning("USA market search error: %s", str(e)[:200])
+        return {
+            "success": False,
+            "query": request.query,
+            "market": "usa",
+            "total_results": 0,
+            "results": {},
+            "error": "ABD pazarı araması sırasında hata oluştu."
+        }
 
 
 @router.post("/search-china")
@@ -417,7 +447,16 @@ async def search_china_market(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logging.getLogger("marketplace").warning("China market search error: %s", str(e)[:200])
+        return {
+            "success": False,
+            "query": request.query,
+            "market": "china",
+            "total_results": 0,
+            "results": {},
+            "error": "Çin pazarı araması sırasında hata oluştu."
+        }
 
 
 @router.get("/platforms")
